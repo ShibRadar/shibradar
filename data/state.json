@@ -1,6 +1,15 @@
 {
-  "last_run": null,
-  "seen_news": [],
+  "last_run": "2026-09-30T18:37:19.285948+00:00",
+  "seen_news": [
+    "907446422455780fd013f36e49e444c5182fb00e839c92812dbfe9bd39895d8a",
+    "3bff352c9fdbe676678802fcf4654b54c9918552a4ea973e66fc371bed5485ce",
+    "5e6d5e628b9be810e02122d18ccc63b0a6f8cf6656c470463988258ae69fbff8",
+    "58e9e518839aaf4115a10a970b74ef4ab93c35afeff379980325e7bcc2c3bde5"
+  ],
   "seen_burn_tx": [],
-  "posted_hashes": []
+  "posted_hashes": [
+    "fe75cec5f4aeb0d375843708bf0f522a5d6474bcfcf426115857bf3c76c04852",
+    "1dbd92da90d74e75bb75f6f4e9ca978b7ddc949d75db521ee89267601b5822b6",
+    "58adeb3c5a39e99acb65adbddb8c4f41ee047be216273ca3fd7f293b60d682a3"
+  ]
 }
