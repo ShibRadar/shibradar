@@ -16,7 +16,9 @@ BURN_ADDRESSES = {
     Web3.to_checksum_address("0x000000000000000000000000000000000000dead"),
     Web3.to_checksum_address("0x0000000000000000000000000000000000000000")
 }
-TRANSFER_TOPIC = Web3.keccak(text="Transfer(address,address,uint256)").hex()
+TRANSFER_TOPIC = "0x" + Web3.keccak(
+    text="Transfer(address,address,uint256)"
+).hex().removeprefix("0x")
 
 def save_state():
     STATE["last_run"] = datetime.now(timezone.utc).isoformat()
@@ -63,7 +65,9 @@ def get_burns():
     for log in logs:
         if len(log["topics"]) < 3:
             continue
-        to_addr = Web3.to_checksum_address("0x" + log["topics"][2].hex()[-40:])
+        topic = log["topics"][2]
+        topic_hex = bytes(topic).hex()
+        to_addr = Web3.to_checksum_address("0x" + topic_hex[-40:])
         if to_addr not in BURN_ADDRESSES:
             continue
         amount = int(log["data"].hex(), 16) / 10**18
