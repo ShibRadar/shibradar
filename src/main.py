@@ -561,15 +561,11 @@ def get_whale_moves():
 
 def get_news():
 
-    now = datetime.now(
-        timezone.utc
-    )
+    now = datetime.now(timezone.utc)
 
     results = []
 
-    for feed_cfg in CONFIG[
-        "rss_feeds"
-    ]:
+    for feed_cfg in CONFIG["rss_feeds"]:
 
         try:
 
@@ -578,55 +574,35 @@ def get_news():
             )
 
             print(
-                f"News feed "
-                f"'{feed_cfg['name']}': "
-                f"{len(feed.entries)} "
-                f"entries received"
+                f"News feed '{feed_cfg['name']}': "
+                f"{len(feed.entries)} entries received"
             )
 
-            for item in feed.entries[:15]:
+            for index, item in enumerate(feed.entries[:15]):
 
-                link = item.get(
-                    "link",
-                    ""
-                )
+                link = item.get("link", "")
 
                 title = re.sub(
                     r"\s+",
                     " ",
-                    item.get(
-                        "title",
-                        ""
-                    )
+                    item.get("title", "")
                 ).strip()
 
-                if (
-                    not title
-                    or not link
-                ):
-
+                if not title or not link:
                     continue
 
                 uid = hashlib.sha256(
                     link.encode()
                 ).hexdigest()
 
-                # Already processed.
-                if (
-                    uid
-                    in STATE["seen_news"]
-                ):
-
+                if uid in STATE["seen_news"]:
                     continue
 
                 published = item.get(
                     "published_parsed"
                 )
 
-                # Some RSS feeds use updated_parsed
-                # instead of published_parsed.
                 if not published:
-
                     published = item.get(
                         "updated_parsed"
                     )
@@ -638,24 +614,27 @@ def get_news():
                         tzinfo=timezone.utc
                     )
 
-                    if (
+                    age_hours = (
                         now - ts
-                        > timedelta(
-                            hours=CONFIG.get(
-                                "news_max_age_hours",
-                                24
-                            )
-                        )
-                    ):
+                    ).total_seconds() / 3600
 
+                    if index < 3:
+                        print(
+                            f"News check: "
+                            f"{age_hours:.1f}h old - "
+                            f"{title[:100]}"
+                        )
+
+                    if age_hours > CONFIG.get(
+                        "news_max_age_hours",
+                        24
+                    ):
                         continue
 
                 results.append({
                     "title": title,
                     "link": link,
-                    "source": feed_cfg[
-                        "name"
-                    ],
+                    "source": feed_cfg["name"],
                     "uid": uid
                 })
 
@@ -666,7 +645,6 @@ def get_news():
             )
 
     return results
-
 
 # ============================================================
 # POST GENERATORS
