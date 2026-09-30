@@ -582,21 +582,29 @@ def get_news():
 
     # Articles with these phrases are usually opinion,
     # prediction, comparison or generic crypto content.
-    blocked_terms = [
-        "price prediction",
-        "price forecast",
-        "price target",
-        "price prediction:",
-        "best crypto buy",
-        "better crypto buy",
-        "should you buy",
-        "should i buy",
-        "will shib reach",
-        "can shib reach",
-        "forecast",
-        "prediction",
-        "price outlook",
-    ]
+   blocked_terms = [
+    "price prediction",
+    "price forecast",
+    "price target",
+    "price prediction:",
+    "best crypto buy",
+    "better crypto buy",
+    "should you buy",
+    "should i buy",
+    "will shib reach",
+    "can shib reach",
+    "forecast",
+    "prediction",
+    "price outlook",
+    "breakout",
+    "potential",
+    "price increase",
+    "price surge",
+    "bullish",
+    "bearish",
+    "rally",
+    "target",
+]
 
     candidates = []
 
