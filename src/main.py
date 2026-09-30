@@ -116,7 +116,9 @@ def get_burns():
                 logs = w3.eth.get_logs({
                     "fromBlock": start,
                     "toBlock": end,
-                    "address": Web3.to_checksum_address(SHIB_TOKEN),
+                    "address": Web3.to_checksum_address(
+                        "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE"
+                    ),
                     "topics": [transfer_topic]
                 })
             except Exception as e:
