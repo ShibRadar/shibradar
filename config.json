@@ -3,7 +3,7 @@
   "max_posts_per_run": 3,
   "min_burn_shib": 1000000,
   "whale_threshold_shib": 1000000000,
-  "news_max_age_hours": 24,
+  "news_max_age_hours": 48,
   "rss_feeds": [
     {
       "name": "Google News SHIB",
