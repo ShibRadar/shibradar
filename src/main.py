@@ -565,6 +565,41 @@ def get_news():
 
     results = []
 
+    # Terms that indicate a more relevant SHIB article.
+    priority_terms = [
+        "shiba inu",
+        "$shib",
+        "shibarium",
+        "shib burn",
+        "shib burns",
+        "shib whale",
+        "shiba whale",
+        "shibaswap",
+        "shib token",
+        "shibarium",
+        "shiba inu ecosystem",
+    ]
+
+    # Articles with these phrases are usually opinion,
+    # prediction, comparison or generic crypto content.
+    blocked_terms = [
+        "price prediction",
+        "price forecast",
+        "price target",
+        "price prediction:",
+        "best crypto buy",
+        "better crypto buy",
+        "should you buy",
+        "should i buy",
+        "will shib reach",
+        "can shib reach",
+        "forecast",
+        "prediction",
+        "price outlook",
+    ]
+
+    candidates = []
+
     for feed_cfg in CONFIG["rss_feeds"]:
 
         try:
@@ -578,17 +613,67 @@ def get_news():
                 f"{len(feed.entries)} entries received"
             )
 
-            for index, item in enumerate(feed.entries[:15]):
+            for item in feed.entries[:15]:
 
-                link = item.get("link", "")
+                link = item.get(
+                    "link",
+                    ""
+                )
 
                 title = re.sub(
                     r"\s+",
                     " ",
-                    item.get("title", "")
+                    item.get(
+                        "title",
+                        ""
+                    )
                 ).strip()
 
                 if not title or not link:
+                    continue
+
+                title_lower = title.lower()
+
+                # Reject low-value prediction/opinion articles.
+                if any(
+                    term in title_lower
+                    for term in blocked_terms
+                ):
+                    continue
+
+                # Calculate relevance score.
+                score = 0
+
+                for term in priority_terms:
+                    if term in title_lower:
+                        score += 10
+
+                # Extra priority for concrete SHIB ecosystem events.
+                event_terms = [
+                    "burn",
+                    "whale",
+                    "shibarium",
+                    "exchange",
+                    "listing",
+                    "delisting",
+                    "wallet",
+                    "transaction",
+                    "token",
+                    "launch",
+                    "upgrade",
+                    "update",
+                    "hack",
+                    "exploit",
+                    "partnership",
+                    "development",
+                ]
+
+                for term in event_terms:
+                    if term in title_lower:
+                        score += 2
+
+                # Ignore articles that aren't meaningfully about SHIB.
+                if score == 0:
                     continue
 
                 uid = hashlib.sha256(
@@ -607,6 +692,8 @@ def get_news():
                         "updated_parsed"
                     )
 
+                age_hours = None
+
                 if published:
 
                     ts = datetime(
@@ -618,24 +705,19 @@ def get_news():
                         now - ts
                     ).total_seconds() / 3600
 
-                    if index < 3:
-                        print(
-                            f"News check: "
-                            f"{age_hours:.1f}h old - "
-                            f"{title[:100]}"
-                        )
-
                     if age_hours > CONFIG.get(
                         "news_max_age_hours",
-                        24
+                        48
                     ):
                         continue
 
-                results.append({
+                candidates.append({
                     "title": title,
                     "link": link,
                     "source": feed_cfg["name"],
-                    "uid": uid
+                    "uid": uid,
+                    "score": score,
+                    "age_hours": age_hours
                 })
 
         except Exception as e:
@@ -644,7 +726,35 @@ def get_news():
                 f"News feed error: {e}"
             )
 
-    return results
+    # Newest/relevant articles first.
+    candidates.sort(
+        key=lambda x: (
+            -x["score"],
+            x["age_hours"]
+            if x["age_hours"] is not None
+            else 9999
+        )
+    )
+
+    # Avoid returning the same article twice
+    # if both RSS feeds contain it.
+    seen_uids = set()
+    final_results = []
+
+    for item in candidates:
+
+        if item["uid"] in seen_uids:
+            continue
+
+        seen_uids.add(
+            item["uid"]
+        )
+
+        final_results.append(
+            item
+        )
+
+    return final_results
 
 # ============================================================
 # POST GENERATORS
