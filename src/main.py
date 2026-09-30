@@ -85,32 +85,78 @@ def get_price():
     )
 
 def get_burns():
-    w3 = Web3(Web3.HTTPProvider(ETH_RPC, request_kwargs={"timeout": 20}))
-    latest = w3.eth.block_number
-    logs = w3.eth.get_logs({
-        "fromBlock": max(0, latest - 2400),
-        "toBlock": latest,
-        "address": SHIB,
-        "topics": [TRANSFER_TOPIC]
-    })
-    burns = []
-    for log in logs:
-        if len(log["topics"]) < 3:
-            continue
-        topic = log["topics"][2]
-        topic_hex = bytes(topic).hex()
-        to_addr = Web3.to_checksum_address("0x" + topic_hex[-40:])
-        if to_addr not in BURN_ADDRESSES:
-            continue
-        amount = int(log["data"].hex(), 16) / 10**18
-        if amount < CONFIG["min_burn_shib"]:
-            continue
-        tx = log["transactionHash"].hex()
-        if tx in STATE["seen_burn_tx"]:
-            continue
-        STATE["seen_burn_tx"].append(tx)
-        burns.append({"amount": amount, "tx": tx})
-    return burns
+    try:
+        w3 = Web3(Web3.HTTPProvider(ETH_RPC, request_kwargs={"timeout": 20}))
+
+        if not w3.is_connected():
+            return []
+
+        latest_block = w3.eth.block_number
+
+        # Scan only recent blocks and split the request into small ranges.
+        scan_blocks = 5000
+        chunk_size = 500
+
+        from_block = max(0, latest_block - scan_blocks)
+        to_block = latest_block
+
+        transfer_topic = Web3.keccak(
+            text="Transfer(address,address,uint256)"
+        ).hex()
+
+        if not transfer_topic.startswith("0x"):
+            transfer_topic = "0x" + transfer_topic
+
+        burns = []
+
+        for start in range(from_block, to_block + 1, chunk_size):
+            end = min(start + chunk_size - 1, to_block)
+
+            try:
+                logs = w3.eth.get_logs({
+                    "fromBlock": start,
+                    "toBlock": end,
+                    "address": Web3.to_checksum_address(SHIB_ADDRESS),
+                    "topics": [transfer_topic]
+                })
+            except Exception as e:
+                print(f"Burn chunk {start}-{end}: {e}")
+                continue
+
+            for log in logs:
+                try:
+                    topic = log["topics"][2]
+                    topic_hex = bytes(topic).hex()
+
+                    to_addr = Web3.to_checksum_address(
+                        "0x" + topic_hex[-40:]
+                    )
+
+                    if to_addr.lower() not in {
+                        BURN_DEAD.lower(),
+                        BURN_ZERO.lower()
+                    }:
+                        continue
+
+                    amount = int(log["data"], 16) / 10**18
+
+                    if amount < MIN_BURN_SHIB:
+                        continue
+
+                    burns.append({
+                        "tx": log["transactionHash"].hex(),
+                        "amount": amount,
+                        "block": log["blockNumber"]
+                    })
+
+                except Exception:
+                    continue
+
+        return burns
+
+    except Exception as e:
+        print(f"Burn scanner: {e}")
+        return []
 
 def get_news():
     now = datetime.now(timezone.utc)
