@@ -675,6 +675,7 @@ def main():
     try:
 
         burns = get_burns()
+        print("Burns found:", len(burns))
 
         for b in burns:
 
@@ -701,6 +702,7 @@ def main():
     try:
 
         whales = get_whale_moves()
+        print("Whale movements found:", len(whales))
 
         for w in whales:
 
@@ -725,9 +727,10 @@ def main():
     # --------------------------------------------------------
 
     try:
+        news = get_news()
+        print("News found:", len(news))
 
-        for n in get_news():
-
+        for n in news:
             candidates.append(
                 (
                     3,
@@ -743,7 +746,6 @@ def main():
             "News scanner:",
             e
         )
-
     # --------------------------------------------------------
     # Market
     # --------------------------------------------------------
