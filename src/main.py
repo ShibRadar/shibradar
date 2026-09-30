@@ -451,6 +451,11 @@ def get_news():
             feed = feedparser.parse(
                 feed_cfg["url"]
             )
+            
+            print(
+                f"News feed '{feed_cfg['name']}': "
+                f"{len(feed.entries)} entries received"
+            )
 
             for item in feed.entries[:15]:
 
