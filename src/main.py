@@ -565,7 +565,6 @@ def get_news():
 
     results = []
 
-    # Terms that indicate a more relevant SHIB article.
     priority_terms = [
         "shiba inu",
         "$shib",
@@ -576,35 +575,51 @@ def get_news():
         "shiba whale",
         "shibaswap",
         "shib token",
-        "shibarium",
         "shiba inu ecosystem",
     ]
 
-    # Articles with these phrases are usually opinion,
-    # prediction, comparison or generic crypto content.
-   blocked_terms = [
-    "price prediction",
-    "price forecast",
-    "price target",
-    "price prediction:",
-    "best crypto buy",
-    "better crypto buy",
-    "should you buy",
-    "should i buy",
-    "will shib reach",
-    "can shib reach",
-    "forecast",
-    "prediction",
-    "price outlook",
-    "breakout",
-    "potential",
-    "price increase",
-    "price surge",
-    "bullish",
-    "bearish",
-    "rally",
-    "target",
-]
+    blocked_terms = [
+        "price prediction",
+        "price forecast",
+        "price target",
+        "price prediction:",
+        "best crypto buy",
+        "better crypto buy",
+        "should you buy",
+        "should i buy",
+        "will shib reach",
+        "can shib reach",
+        "forecast",
+        "prediction",
+        "price outlook",
+        "breakout",
+        "potential",
+        "price increase",
+        "price surge",
+        "bullish",
+        "bearish",
+        "rally",
+        "target",
+    ]
+
+    event_terms = [
+        "burn",
+        "whale",
+        "shibarium",
+        "exchange",
+        "listing",
+        "delisting",
+        "wallet",
+        "transaction",
+        "token",
+        "launch",
+        "upgrade",
+        "update",
+        "hack",
+        "exploit",
+        "partnership",
+        "development",
+    ]
 
     candidates = []
 
@@ -642,45 +657,24 @@ def get_news():
 
                 title_lower = title.lower()
 
-                # Reject low-value prediction/opinion articles.
+                # Ignore prediction/opinion articles.
                 if any(
                     term in title_lower
                     for term in blocked_terms
                 ):
                     continue
 
-                # Calculate relevance score.
                 score = 0
 
                 for term in priority_terms:
                     if term in title_lower:
                         score += 10
 
-                # Extra priority for concrete SHIB ecosystem events.
-                event_terms = [
-                    "burn",
-                    "whale",
-                    "shibarium",
-                    "exchange",
-                    "listing",
-                    "delisting",
-                    "wallet",
-                    "transaction",
-                    "token",
-                    "launch",
-                    "upgrade",
-                    "update",
-                    "hack",
-                    "exploit",
-                    "partnership",
-                    "development",
-                ]
-
                 for term in event_terms:
                     if term in title_lower:
                         score += 2
 
-                # Ignore articles that aren't meaningfully about SHIB.
+                # Ignore articles without meaningful SHIB relevance.
                 if score == 0:
                     continue
 
@@ -734,7 +728,6 @@ def get_news():
                 f"News feed error: {e}"
             )
 
-    # Newest/relevant articles first.
     candidates.sort(
         key=lambda x: (
             -x["score"],
@@ -744,10 +737,7 @@ def get_news():
         )
     )
 
-    # Avoid returning the same article twice
-    # if both RSS feeds contain it.
     seen_uids = set()
-    final_results = []
 
     for item in candidates:
 
@@ -758,11 +748,11 @@ def get_news():
             item["uid"]
         )
 
-        final_results.append(
+        results.append(
             item
         )
 
-    return final_results
+    return results
 
 # ============================================================
 # POST GENERATORS
