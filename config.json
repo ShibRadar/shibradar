@@ -1,0 +1,17 @@
+{
+  "account_name": "ShibRadar",
+  "max_posts_per_run": 3,
+  "min_burn_shib": 1000000,
+  "news_max_age_hours": 24,
+  "rss_feeds": [
+    {
+      "name": "Google News SHIB",
+      "url": "https://news.google.com/rss/search?q=Shiba%20Inu%20SHIB&hl=en-US&gl=US&ceid=US:en"
+    },
+    {
+      "name": "Google News Shibarium",
+      "url": "https://news.google.com/rss/search?q=Shibarium&hl=en-US&gl=US&ceid=US:en"
+    }
+  ],
+  "donation_address": "PUT_YOUR_SHIB_ADDRESS_HERE"
+}
