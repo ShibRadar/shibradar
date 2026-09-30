@@ -57,14 +57,22 @@ TRANSFER_TOPIC = (
     ).hex().removeprefix("0x")
 )
 
+
 # Minimum burn to report.
 MIN_BURN_SHIB = int(
-    CONFIG.get("min_burn_shib", 1_000_000)
+    CONFIG.get(
+        "min_burn_shib",
+        1_000_000
+    )
 )
+
 
 # Minimum transfer to classify as a whale movement.
 WHALE_THRESHOLD_SHIB = int(
-    CONFIG.get("whale_threshold_shib", 1_000_000_000)
+    CONFIG.get(
+        "whale_threshold_shib",
+        1_000_000_000
+    )
 )
 
 
@@ -72,19 +80,49 @@ WHALE_THRESHOLD_SHIB = int(
 # STATE
 # ============================================================
 
-STATE.setdefault("seen_news", [])
-STATE.setdefault("seen_burn_tx", [])
-STATE.setdefault("seen_whale_tx", [])
-STATE.setdefault("posted_hashes", [])
+STATE.setdefault(
+    "seen_news",
+    []
+)
+
+STATE.setdefault(
+    "seen_burn_tx",
+    []
+)
+
+STATE.setdefault(
+    "seen_whale_tx",
+    []
+)
+
+STATE.setdefault(
+    "posted_hashes",
+    [])
 
 
 def save_state():
-    STATE["last_run"] = datetime.now(timezone.utc).isoformat()
 
-    STATE["seen_news"] = STATE["seen_news"][-500:]
-    STATE["seen_burn_tx"] = STATE["seen_burn_tx"][-500:]
-    STATE["seen_whale_tx"] = STATE["seen_whale_tx"][-500:]
-    STATE["posted_hashes"] = STATE["posted_hashes"][-500:]
+    STATE["last_run"] = (
+        datetime.now(
+            timezone.utc
+        ).isoformat()
+    )
+
+    STATE["seen_news"] = (
+        STATE["seen_news"][-500:]
+    )
+
+    STATE["seen_burn_tx"] = (
+        STATE["seen_burn_tx"][-500:]
+    )
+
+    STATE["seen_whale_tx"] = (
+        STATE["seen_whale_tx"][-500:]
+    )
+
+    STATE["posted_hashes"] = (
+        STATE["posted_hashes"][-500:]
+    )
 
     STATE_FILE.write_text(
         json.dumps(
@@ -99,16 +137,24 @@ def save_state():
 # ============================================================
 
 def post_hash(text):
+
     return hashlib.sha256(
-        text.strip().lower().encode()
+        text.strip()
+        .lower()
+        .encode()
     ).hexdigest()
 
 
 def already_posted(text):
-    return post_hash(text) in STATE["posted_hashes"]
+
+    return (
+        post_hash(text)
+        in STATE["posted_hashes"]
+    )
 
 
 def remember_post(text):
+
     STATE["posted_hashes"].append(
         post_hash(text)
     )
@@ -119,6 +165,7 @@ def remember_post(text):
 # ============================================================
 
 def shib_number(n):
+
     return f"{n:,.0f}"
 
 
@@ -127,6 +174,7 @@ def shib_number(n):
 # ============================================================
 
 def get_price():
+
     token_address = (
         "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE"
     )
@@ -140,7 +188,10 @@ def get_price():
 
     pairs = r.json()
 
-    if not isinstance(pairs, list):
+    if not isinstance(
+        pairs,
+        list
+    ):
         return None
 
     valid_pairs = []
@@ -148,18 +199,28 @@ def get_price():
     for p in pairs:
 
         liquidity = float(
-            (p.get("liquidity") or {}).get("usd") or 0
+            (p.get("liquidity") or {}).get(
+                "usd"
+            )
+            or 0
         )
 
         volume = float(
-            (p.get("volume") or {}).get("h24") or 0
+            (p.get("volume") or {}).get(
+                "h24"
+            )
+            or 0
         )
 
         price = float(
-            p.get("priceUsd") or 0
+            p.get("priceUsd")
+            or 0
         )
 
-        if liquidity >= 100_000 and price > 0:
+        if (
+            liquidity >= 100_000
+            and price > 0
+        ):
 
             valid_pairs.append({
                 "price": price,
@@ -186,11 +247,14 @@ def get_web3():
     w3 = Web3(
         Web3.HTTPProvider(
             ETH_RPC,
-            request_kwargs={"timeout": 20}
+            request_kwargs={
+                "timeout": 20
+            }
         )
     )
 
     if not w3.is_connected():
+
         return None
 
     return w3
@@ -198,7 +262,9 @@ def get_web3():
 
 def decode_address(topic):
 
-    topic_hex = bytes(topic).hex()
+    topic_hex = bytes(
+        topic
+    ).hex()
 
     return Web3.to_checksum_address(
         "0x" + topic_hex[-40:]
@@ -216,9 +282,12 @@ def get_burns():
         w3 = get_web3()
 
         if not w3:
+
             return []
 
-        latest_block = w3.eth.block_number
+        latest_block = (
+            w3.eth.block_number
+        )
 
         # Recent blocks only.
         scan_blocks = 5000
@@ -252,13 +321,16 @@ def get_burns():
                     "fromBlock": start,
                     "toBlock": end,
                     "address": SHIB,
-                    "topics": [TRANSFER_TOPIC]
+                    "topics": [
+                        TRANSFER_TOPIC
+                    ]
                 })
 
             except Exception as e:
 
                 print(
-                    f"Burn chunk {start}-{end}: {e}"
+                    f"Burn chunk "
+                    f"{start}-{end}: {e}"
                 )
 
                 continue
@@ -267,41 +339,64 @@ def get_burns():
 
                 try:
 
-                    if len(log["topics"]) < 3:
+                    if len(
+                        log["topics"]
+                    ) < 3:
+
                         continue
 
                     to_addr = decode_address(
                         log["topics"][2]
                     )
 
-                    if to_addr.lower() not in {
+                    burn_addresses = {
                         x.lower()
                         for x in BURN_ADDRESSES
-                    }:
+                    }
+
+                    if (
+                        to_addr.lower()
+                        not in burn_addresses
+                    ):
+
                         continue
 
                     tx_hash = log[
                         "transactionHash"
                     ].hex()
 
-                    if tx_hash in STATE["seen_burn_tx"]:
+                    if (
+                        tx_hash
+                        in STATE["seen_burn_tx"]
+                    ):
+
                         continue
 
                     amount = (
-                        int(log["data"], 16)
+                        int(
+                            log["data"],
+                            16
+                        )
                         / 10**18
                     )
 
-                    if amount < MIN_BURN_SHIB:
+                    if (
+                        amount
+                        < MIN_BURN_SHIB
+                    ):
+
                         continue
 
                     burns.append({
                         "tx": tx_hash,
                         "amount": amount,
-                        "block": log["blockNumber"]
+                        "block": log[
+                            "blockNumber"
+                        ]
                     })
 
                 except Exception:
+
                     continue
 
         return burns
@@ -326,12 +421,14 @@ def get_whale_moves():
         w3 = get_web3()
 
         if not w3:
+
             return []
 
-        latest_block = w3.eth.block_number
+        latest_block = (
+            w3.eth.block_number
+        )
 
-        # Keep this smaller than the burn scan because
-        # normal SHIB transfers can be numerous.
+        # Recent blocks only.
         scan_blocks = 1000
 
         chunk_size = 250
@@ -362,13 +459,16 @@ def get_whale_moves():
                     "fromBlock": start,
                     "toBlock": end,
                     "address": SHIB,
-                    "topics": [TRANSFER_TOPIC]
+                    "topics": [
+                        TRANSFER_TOPIC
+                    ]
                 })
 
             except Exception as e:
 
                 print(
-                    f"Whale chunk {start}-{end}: {e}"
+                    f"Whale chunk "
+                    f"{start}-{end}: {e}"
                 )
 
                 continue
@@ -377,22 +477,36 @@ def get_whale_moves():
 
                 try:
 
-                    if len(log["topics"]) < 3:
+                    if len(
+                        log["topics"]
+                    ) < 3:
+
                         continue
 
                     amount = (
-                        int(log["data"], 16)
+                        int(
+                            log["data"],
+                            16
+                        )
                         / 10**18
                     )
 
-                    if amount < WHALE_THRESHOLD_SHIB:
+                    if (
+                        amount
+                        < WHALE_THRESHOLD_SHIB
+                    ):
+
                         continue
 
                     tx_hash = log[
                         "transactionHash"
                     ].hex()
 
-                    if tx_hash in STATE["seen_whale_tx"]:
+                    if (
+                        tx_hash
+                        in STATE["seen_whale_tx"]
+                    ):
+
                         continue
 
                     from_addr = decode_address(
@@ -403,11 +517,17 @@ def get_whale_moves():
                         log["topics"][2]
                     )
 
-                    # Burns are handled separately.
-                    if to_addr.lower() in {
+                    burn_addresses = {
                         x.lower()
                         for x in BURN_ADDRESSES
-                    }:
+                    }
+
+                    # Burns are handled separately.
+                    if (
+                        to_addr.lower()
+                        in burn_addresses
+                    ):
+
                         continue
 
                     whales.append({
@@ -415,10 +535,13 @@ def get_whale_moves():
                         "amount": amount,
                         "from": from_addr,
                         "to": to_addr,
-                        "block": log["blockNumber"]
+                        "block": log[
+                            "blockNumber"
+                        ]
                     })
 
                 except Exception:
+
                     continue
 
         return whales
@@ -444,17 +567,21 @@ def get_news():
 
     results = []
 
-    for feed_cfg in CONFIG["rss_feeds"]:
+    for feed_cfg in CONFIG[
+        "rss_feeds"
+    ]:
 
         try:
 
             feed = feedparser.parse(
                 feed_cfg["url"]
             )
-            
+
             print(
-                f"News feed '{feed_cfg['name']}': "
-                f"{len(feed.entries)} entries received"
+                f"News feed "
+                f"'{feed_cfg['name']}': "
+                f"{len(feed.entries)} "
+                f"entries received"
             )
 
             for item in feed.entries[:15]:
@@ -473,19 +600,36 @@ def get_news():
                     )
                 ).strip()
 
-                if not title or not link:
+                if (
+                    not title
+                    or not link
+                ):
+
                     continue
 
                 uid = hashlib.sha256(
                     link.encode()
                 ).hexdigest()
 
-                if uid in STATE["seen_news"]:
+                # Already processed.
+                if (
+                    uid
+                    in STATE["seen_news"]
+                ):
+
                     continue
 
                 published = item.get(
                     "published_parsed"
                 )
+
+                # Some RSS feeds use updated_parsed
+                # instead of published_parsed.
+                if not published:
+
+                    published = item.get(
+                        "updated_parsed"
+                    )
 
                 if published:
 
@@ -497,17 +641,21 @@ def get_news():
                     if (
                         now - ts
                         > timedelta(
-                            hours=CONFIG[
-                                "news_max_age_hours"
-                            ]
+                            hours=CONFIG.get(
+                                "news_max_age_hours",
+                                24
+                            )
                         )
                     ):
+
                         continue
 
                 results.append({
                     "title": title,
                     "link": link,
-                    "source": feed_cfg["name"],
+                    "source": feed_cfg[
+                        "name"
+                    ],
                     "uid": uid
                 })
 
@@ -527,50 +675,51 @@ def get_news():
 def make_burn_post(b):
 
     return (
-        f"🔥 SHIB BURN ALERT\n\n"
-        f"{shib_number(b['amount'])} $SHIB "
-        f"sent to a burn address.\n\n"
-        f"Transaction:\n"
+        "🔥 SHIB BURN ALERT\n\n"
+        f"{shib_number(b['amount'])} "
+        "$SHIB sent to a burn address.\n\n"
+        "Transaction:\n"
         f"https://etherscan.io/tx/{b['tx']}\n\n"
-        f"#SHIB #ShibaInu #SHIBBurn"
+        "#SHIB #ShibaInu #SHIBBurn"
     )
 
 
 def make_whale_post(w):
 
     return (
-        f"🐋 SHIB WHALE MOVEMENT\n\n"
-        f"{shib_number(w['amount'])} $SHIB "
-        f"transferred.\n\n"
-        f"From:\n"
+        "🐋 SHIB WHALE MOVEMENT\n\n"
+        f"{shib_number(w['amount'])} "
+        "$SHIB transferred.\n\n"
+        "From:\n"
         f"{w['from']}\n\n"
-        f"To:\n"
+        "To:\n"
         f"{w['to']}\n\n"
-        f"Transaction:\n"
+        "Transaction:\n"
         f"https://etherscan.io/tx/{w['tx']}\n\n"
-        f"#SHIB #ShibaInu #SHIBWhale"
+        "#SHIB #ShibaInu #SHIBWhale"
     )
 
 
 def make_news_post(n):
 
     return (
-        f"📰 SHIB NEWS\n\n"
+        "📰 SHIB NEWS\n\n"
         f"{n['title']}\n\n"
         f"Source: {n['source']}\n"
         f"{n['link']}\n\n"
-        f"#SHIB #ShibaInu #Shibarium"
+        "#SHIB #ShibaInu #Shibarium"
     )
 
 
 def make_market_post(m):
 
     return (
-        f"📊 SHIB MARKET UPDATE\n\n"
+        "📊 SHIB MARKET UPDATE\n\n"
         f"Price: ${m['price']:.10f}\n"
-        f"24h volume: ${m['volume24h']:,.0f}\n\n"
+        f"24h volume: "
+        f"${m['volume24h']:,.0f}\n\n"
         f"Data: {m['url']}\n\n"
-        f"#SHIB #ShibaInu"
+        "#SHIB #ShibaInu"
     )
 
 
@@ -597,14 +746,17 @@ def x_access_token():
         client_id,
         client_secret
     ]):
+
         return None
 
     r = requests.post(
         "https://api.x.com/2/oauth2/token",
         data={
             "refresh_token": refresh,
-            "grant_type": "refresh_token",
-            "client_id": client_id
+            "grant_type":
+                "refresh_token",
+            "client_id":
+                client_id
         },
         auth=(
             client_id,
@@ -615,7 +767,9 @@ def x_access_token():
 
     r.raise_for_status()
 
-    return r.json()["access_token"]
+    return r.json()[
+        "access_token"
+    ]
 
 
 def publish(text):
@@ -680,7 +834,11 @@ def main():
     try:
 
         burns = get_burns()
-        print("Burns found:", len(burns))
+
+        print(
+            "Burns found:",
+            len(burns)
+        )
 
         for b in burns:
 
@@ -707,7 +865,11 @@ def main():
     try:
 
         whales = get_whale_moves()
-        print("Whale movements found:", len(whales))
+
+        print(
+            "Whale movements found:",
+            len(whales)
+        )
 
         for w in whales:
 
@@ -732,10 +894,16 @@ def main():
     # --------------------------------------------------------
 
     try:
+
         news = get_news()
-        print("News found:", len(news))
+
+        print(
+            "News found:",
+            len(news)
+        )
 
         for n in news:
+
             candidates.append(
                 (
                     3,
@@ -751,6 +919,7 @@ def main():
             "News scanner:",
             e
         )
+
     # --------------------------------------------------------
     # Market
     # --------------------------------------------------------
@@ -794,31 +963,59 @@ def main():
         )
     )
 
-    for _, text, post_type, identifier in candidates:
+    # --------------------------------------------------------
+    # Publish
+    # --------------------------------------------------------
+
+    for (
+        _,
+        text,
+        post_type,
+        identifier
+    ) in candidates:
 
         if sent >= max_posts:
+
             break
 
         if already_posted(text):
+
             continue
 
         if publish(text):
 
             remember_post(text)
 
-            # Mark blockchain/news items as processed.
-            if post_type == "burn" and identifier:
-                STATE["seen_burn_tx"].append(
+            if (
+                post_type == "burn"
+                and identifier
+            ):
+
+                STATE[
+                    "seen_burn_tx"
+                ].append(
                     identifier
                 )
 
-            elif post_type == "whale" and identifier:
-                STATE["seen_whale_tx"].append(
+            elif (
+                post_type == "whale"
+                and identifier
+            ):
+
+                STATE[
+                    "seen_whale_tx"
+                ].append(
                     identifier
                 )
 
-            elif post_type == "news" and identifier:
-                STATE["seen_news"].append(
+            elif (
+                post_type == "news"
+                and identifier
+            ):
+
+                STATE[
+                    "seen_news"
+                ].append(
                     identifier
                 )
 
