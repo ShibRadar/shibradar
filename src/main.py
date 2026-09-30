@@ -57,8 +57,6 @@ TRANSFER_TOPIC = (
     ).hex().removeprefix("0x")
 )
 
-
-# Minimum burn to report.
 MIN_BURN_SHIB = int(
     CONFIG.get(
         "min_burn_shib",
@@ -66,8 +64,6 @@ MIN_BURN_SHIB = int(
     )
 )
 
-
-# Minimum transfer to classify as a whale movement.
 WHALE_THRESHOLD_SHIB = int(
     CONFIG.get(
         "whale_threshold_shib",
@@ -254,7 +250,6 @@ def get_web3():
     )
 
     if not w3.is_connected():
-
         return None
 
     return w3
@@ -282,17 +277,14 @@ def get_burns():
         w3 = get_web3()
 
         if not w3:
-
+            print("Ethereum RPC connection failed.")
             return []
 
         latest_block = (
             w3.eth.block_number
         )
 
-        # Recent blocks only.
         scan_blocks = 5000
-
-        # Keep RPC requests small.
         chunk_size = 500
 
         from_block = max(
@@ -303,6 +295,12 @@ def get_burns():
         to_block = latest_block
 
         burns = []
+        total_logs = 0
+
+        print(
+            f"Burn scan: blocks "
+            f"{from_block}-{to_block}"
+        )
 
         for start in range(
             from_block,
@@ -326,6 +324,8 @@ def get_burns():
                     ]
                 })
 
+                total_logs += len(logs)
+
             except Exception as e:
 
                 print(
@@ -342,7 +342,6 @@ def get_burns():
                     if len(
                         log["topics"]
                     ) < 3:
-
                         continue
 
                     to_addr = decode_address(
@@ -358,7 +357,6 @@ def get_burns():
                         to_addr.lower()
                         not in burn_addresses
                     ):
-
                         continue
 
                     tx_hash = log[
@@ -369,7 +367,6 @@ def get_burns():
                         tx_hash
                         in STATE["seen_burn_tx"]
                     ):
-
                         continue
 
                     amount = (
@@ -384,7 +381,6 @@ def get_burns():
                         amount
                         < MIN_BURN_SHIB
                     ):
-
                         continue
 
                     burns.append({
@@ -396,8 +392,17 @@ def get_burns():
                     })
 
                 except Exception:
-
                     continue
+
+        print(
+            "SHIB Transfer logs found:",
+            total_logs
+        )
+
+        print(
+            "Burn candidates found:",
+            len(burns)
+        )
 
         return burns
 
@@ -421,16 +426,14 @@ def get_whale_moves():
         w3 = get_web3()
 
         if not w3:
-
+            print("Ethereum RPC connection failed.")
             return []
 
         latest_block = (
             w3.eth.block_number
         )
 
-        # Recent blocks only.
         scan_blocks = 1000
-
         chunk_size = 250
 
         from_block = max(
@@ -441,6 +444,12 @@ def get_whale_moves():
         to_block = latest_block
 
         whales = []
+        total_logs = 0
+
+        print(
+            f"Whale scan: blocks "
+            f"{from_block}-{to_block}"
+        )
 
         for start in range(
             from_block,
@@ -464,6 +473,8 @@ def get_whale_moves():
                     ]
                 })
 
+                total_logs += len(logs)
+
             except Exception as e:
 
                 print(
@@ -480,7 +491,6 @@ def get_whale_moves():
                     if len(
                         log["topics"]
                     ) < 3:
-
                         continue
 
                     amount = (
@@ -495,7 +505,6 @@ def get_whale_moves():
                         amount
                         < WHALE_THRESHOLD_SHIB
                     ):
-
                         continue
 
                     tx_hash = log[
@@ -506,7 +515,6 @@ def get_whale_moves():
                         tx_hash
                         in STATE["seen_whale_tx"]
                     ):
-
                         continue
 
                     from_addr = decode_address(
@@ -522,12 +530,10 @@ def get_whale_moves():
                         for x in BURN_ADDRESSES
                     }
 
-                    # Burns are handled separately.
                     if (
                         to_addr.lower()
                         in burn_addresses
                     ):
-
                         continue
 
                     whales.append({
@@ -541,8 +547,17 @@ def get_whale_moves():
                     })
 
                 except Exception:
-
                     continue
+
+        print(
+            "SHIB Transfer logs for whale scan:",
+            total_logs
+        )
+
+        print(
+            "Whale candidates found:",
+            len(whales)
+        )
 
         return whales
 
@@ -561,7 +576,9 @@ def get_whale_moves():
 
 def get_news():
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(
+        timezone.utc
+    )
 
     results = []
 
@@ -657,7 +674,6 @@ def get_news():
 
                 title_lower = title.lower()
 
-                # Ignore prediction/opinion articles.
                 if any(
                     term in title_lower
                     for term in blocked_terms
@@ -667,14 +683,15 @@ def get_news():
                 score = 0
 
                 for term in priority_terms:
+
                     if term in title_lower:
                         score += 10
 
                 for term in event_terms:
+
                     if term in title_lower:
                         score += 2
 
-                # Ignore articles without meaningful SHIB relevance.
                 if score == 0:
                     continue
 
@@ -754,6 +771,7 @@ def get_news():
 
     return results
 
+
 # ============================================================
 # POST GENERATORS
 # ============================================================
@@ -832,17 +850,14 @@ def x_access_token():
         client_id,
         client_secret
     ]):
-
         return None
 
     r = requests.post(
         "https://api.x.com/2/oauth2/token",
         data={
             "refresh_token": refresh,
-            "grant_type":
-                "refresh_token",
-            "client_id":
-                client_id
+            "grant_type": "refresh_token",
+            "client_id": client_id
         },
         auth=(
             client_id,
@@ -1033,7 +1048,7 @@ def main():
         )
 
     # --------------------------------------------------------
-    # Sort by priority
+    # Sort
     # --------------------------------------------------------
 
     candidates.sort(
@@ -1061,11 +1076,9 @@ def main():
     ) in candidates:
 
         if sent >= max_posts:
-
             break
 
         if already_posted(text):
-
             continue
 
         if publish(text):
