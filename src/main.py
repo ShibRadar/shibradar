@@ -40,17 +40,49 @@ def shib_number(n):
     return f"{n:,.0f}"
 
 def get_price():
-    r = requests.get("https://api.dexscreener.com/latest/dex/search?q=SHIB%20USDT", timeout=15)
+    token_address = "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE"
+
+    r = requests.get(
+        f"https://api.dexscreener.com/token-pairs/v1/ethereum/{token_address}",
+        timeout=15
+    )
     r.raise_for_status()
-    pairs = [p for p in r.json().get("pairs", []) if p.get("chainId") == "ethereum"]
-    if not pairs:
+
+    pairs = r.json()
+
+    if not isinstance(pairs, list):
         return None
-    p = max(pairs, key=lambda x: float(x.get("liquidity", {}).get("usd") or 0))
-    return {
-        "price": float(p.get("priceUsd") or 0),
-        "volume24h": float(p.get("volume", {}).get("h24") or 0),
-        "url": p.get("url")
-    }
+
+    # Only consider pairs with meaningful liquidity.
+    valid_pairs = []
+
+    for p in pairs:
+        liquidity = float(
+            (p.get("liquidity") or {}).get("usd") or 0
+        )
+
+        volume = float(
+            (p.get("volume") or {}).get("h24") or 0
+        )
+
+        price = float(p.get("priceUsd") or 0)
+
+        if liquidity >= 100000 and price > 0:
+            valid_pairs.append({
+                "price": price,
+                "volume24h": volume,
+                "liquidity": liquidity,
+                "url": p.get("url")
+            })
+
+    if not valid_pairs:
+        return None
+
+    # Use the most liquid SHIB pair.
+    return max(
+        valid_pairs,
+        key=lambda x: x["liquidity"]
+    )
 
 def get_burns():
     w3 = Web3(Web3.HTTPProvider(ETH_RPC, request_kwargs={"timeout": 20}))
