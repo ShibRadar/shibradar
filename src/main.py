@@ -247,6 +247,7 @@ def scan_chain():
             "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "rpc_errors": rpc_errors,
         }
+        STATE.setdefault("chain_failing_since", now_iso())
         return [], []
 
     latest = head - CONFIRMATIONS
@@ -294,6 +295,10 @@ def scan_chain():
                 })
 
     STATE["last_scanned_block"] = scanned_to
+    if scanned_to >= latest:
+        STATE.pop("chain_failing_since", None)
+    else:
+        STATE.setdefault("chain_failing_since", now_iso())
     STATE["chain_scan"] = {
         "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "blocks": f"{from_block}-{scanned_to}",
@@ -617,6 +622,15 @@ def token_problem(record):
     return None
 
 
+def chain_problem():
+    """Burns and whales are the core of the account: alert if the chain has
+    not been fully scanned for a day (see chain_scan in state.json)."""
+    since = STATE.get("chain_failing_since")
+    if since and hours_since(since) > 24:
+        return f"blockchain not fully scanned for {hours_since(since):.0f} h (see chain_scan)"
+    return None
+
+
 # ============================================================
 # THREADS API
 # ============================================================
@@ -765,9 +779,9 @@ def main():
 
     # Posts went out already; failing the run now only triggers GitHub's
     # e-mail about a failed workflow, so the owner hears about it in time.
-    problem = token_problem(token_record)
-    if problem:
-        raise SystemExit(f"ATTENTION: {problem}")
+    problems = [p for p in (token_problem(token_record), chain_problem()) if p]
+    if problems:
+        raise SystemExit("ATTENTION: " + "; ".join(problems))
 
 
 if __name__ == "__main__":
