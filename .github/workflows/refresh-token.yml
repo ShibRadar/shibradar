@@ -1,0 +1,37 @@
+name: Refresh Threads token
+
+# Long-lived Threads tokens last 60 days. Refreshing weekly keeps the
+# token alive indefinitely; the new token overwrites the GitHub Secret.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh token and update secret
+        env:
+          OLD_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "$OLD_TOKEN" ]; then echo "THREADS_ACCESS_TOKEN secret missing"; exit 1; fi
+          if [ -z "$GH_TOKEN" ]; then echo "GH_PAT secret missing (needs Secrets: read/write)"; exit 1; fi
+          RESP=$(curl -sS -G "https://graph.threads.net/refresh_access_token" \
+            --data-urlencode "grant_type=th_refresh_token" \
+            --data-urlencode "access_token=$OLD_TOKEN")
+          NEW=$(echo "$RESP" | jq -r '.access_token // empty')
+          if [ -z "$NEW" ]; then
+            echo "Refresh failed: $(echo "$RESP" | jq -c '.error // .')"
+            exit 1
+          fi
+          echo "::add-mask::$NEW"
+          DAYS=$(echo "$RESP" | jq -r '(.expires_in // 0) / 86400 | floor')
+          gh secret set THREADS_ACCESS_TOKEN --repo "$REPO" --body "$NEW"
+          echo "Token refreshed; valid for ~$DAYS days."

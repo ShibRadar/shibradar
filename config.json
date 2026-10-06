@@ -1,8 +1,14 @@
 {
   "account_name": "ShibRadar",
   "max_posts_per_run": 3,
+  "max_posts_per_type": {
+    "whale": 1,
+    "news": 2,
+    "market": 1
+  },
   "min_burn_shib": 1000000,
-  "whale_threshold_shib": 1000000000,
+  "whale_threshold_shib": 50000000000,
+  "max_scan_blocks": 3000,
   "news_max_age_hours": 48,
   "rss_feeds": [
     {
@@ -14,5 +20,5 @@
       "url": "https://news.google.com/rss/search?q=Shibarium&hl=en-US&gl=US&ceid=US:en"
     }
   ],
-  "donation_address": "PUT_YOUR_SHIB_ADDRESS_HERE"
+  "donation_address": "0xc5e32e0A3b4F0EaF5720495c01bcbE4ABb4BBDad"
 }

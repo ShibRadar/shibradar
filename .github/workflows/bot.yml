@@ -2,11 +2,21 @@ name: ShibRadar Bot
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "DRY_RUN (true = only print, false = publish on Threads)"
+        type: choice
+        options: ["true", "false"]
+        default: "true"
   schedule:
     - cron: "*/30 * * * *"
 
 permissions:
   contents: write
+
+concurrency:
+  group: shibradar-bot
+  cancel-in-progress: false
 
 jobs:
   run:
@@ -16,19 +26,24 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Run bot
         env:
-          X_CLIENT_ID: ${{ secrets.X_CLIENT_ID }}
-          X_CLIENT_SECRET: ${{ secrets.X_CLIENT_SECRET }}
-          X_REFRESH_TOKEN: ${{ secrets.X_REFRESH_TOKEN }}
-          DRY_RUN: "true"
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+          # Manual run: the chosen input. Scheduled run: repository
+          # variable DRY_RUN (Settings > Variables). Default: true.
+          DRY_RUN: ${{ github.event.inputs.dry_run || vars.DRY_RUN || 'true' }}
         run: python -m src.main
       - name: Save state
+        if: always()
         run: |
           git config user.name "ShibRadar Bot"
           git config user.email "actions@users.noreply.github.com"
           git add data/state.json
-          git diff --cached --quiet || git commit -m "bot: update state"
+          git diff --cached --quiet && exit 0
+          git commit -m "bot: update state"
+          git pull --rebase --autostash
           git push

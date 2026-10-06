@@ -1,1137 +1,11 @@
-import os
-import json
-import time
-import hashlib
-import re
-from pathlib import Path
-from datetime import datetime, timezone, timedelta
+"""ShibRadar — SHIB burns, whale moves, news and market data, published to Threads.
 
-import requests
-import feedparser
-from web3 import Web3
+Run:  python -m src.main
+Env:  THREADS_ACCESS_TOKEN  long-lived Threads token (GitHub Secret)
+      DRY_RUN               "true" (default) prints posts instead of publishing
+      ETH_RPC_URL           optional Ethereum RPC (defaults to a public node)
+"""
 
-
-# ============================================================
-# PATHS / CONFIG
-# ============================================================
-
-ROOT = Path(__file__).resolve().parents[1]
-
-CONFIG = json.loads(
-    (ROOT / "config.json").read_text()
-)
-
-STATE_FILE = ROOT / "data" / "state.json"
-
-STATE = json.loads(
-    STATE_FILE.read_text()
-)
-
-
-# ============================================================
-# SHIB / ETH CONFIG
-# ============================================================
-
-ETH_RPC = os.getenv(
-    "ETH_RPC_URL",
-    "https://ethereum-rpc.publicnode.com"
-)
-
-SHIB = Web3.to_checksum_address(
-    "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE"
-)
-
-BURN_ADDRESSES = {
-    Web3.to_checksum_address(
-        "0x000000000000000000000000000000000000dead"
-    ),
-    Web3.to_checksum_address(
-        "0x0000000000000000000000000000000000000000"
-    )
-}
-
-TRANSFER_TOPIC = (
-    "0x"
-    + Web3.keccak(
-        text="Transfer(address,address,uint256)"
-    ).hex().removeprefix("0x")
-)
-
-MIN_BURN_SHIB = int(
-    CONFIG.get(
-        "min_burn_shib",
-        1_000_000
-    )
-)
-
-WHALE_THRESHOLD_SHIB = int(
-    CONFIG.get(
-        "whale_threshold_shib",
-        1_000_000_000
-    )
-)
-
-
-# ============================================================
-# STATE
-# ============================================================
-
-STATE.setdefault(
-    "seen_news",
-    []
-)
-
-STATE.setdefault(
-    "seen_burn_tx",
-    []
-)
-
-STATE.setdefault(
-    "seen_whale_tx",
-    []
-)
-
-STATE.setdefault(
-    "posted_hashes",
-    [])
-
-
-def save_state():
-
-    STATE["last_run"] = (
-        datetime.now(
-            timezone.utc
-        ).isoformat()
-    )
-
-    STATE["seen_news"] = (
-        STATE["seen_news"][-500:]
-    )
-
-    STATE["seen_burn_tx"] = (
-        STATE["seen_burn_tx"][-500:]
-    )
-
-    STATE["seen_whale_tx"] = (
-        STATE["seen_whale_tx"][-500:]
-    )
-
-    STATE["posted_hashes"] = (
-        STATE["posted_hashes"][-500:]
-    )
-
-    STATE_FILE.write_text(
-        json.dumps(
-            STATE,
-            indent=2
-        )
-    )
-
-
-# ============================================================
-# POST DEDUPLICATION
-# ============================================================
-
-def post_hash(text):
-
-    return hashlib.sha256(
-        text.strip()
-        .lower()
-        .encode()
-    ).hexdigest()
-
-
-def already_posted(text):
-
-    return (
-        post_hash(text)
-        in STATE["posted_hashes"]
-    )
-
-
-def remember_post(text):
-
-    STATE["posted_hashes"].append(
-        post_hash(text)
-    )
-
-
-# ============================================================
-# FORMATTING
-# ============================================================
-
-def shib_number(n):
-
-    return f"{n:,.0f}"
-
-
-# ============================================================
-# MARKET DATA
-# ============================================================
-
-def get_price():
-
-    token_address = (
-        "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE"
-    )
-
-    r = requests.get(
-        f"https://api.dexscreener.com/token-pairs/v1/ethereum/{token_address}",
-        timeout=15
-    )
-
-    r.raise_for_status()
-
-    pairs = r.json()
-
-    if not isinstance(
-        pairs,
-        list
-    ):
-        return None
-
-    valid_pairs = []
-
-    for p in pairs:
-
-        liquidity = float(
-            (p.get("liquidity") or {}).get(
-                "usd"
-            )
-            or 0
-        )
-
-        volume = float(
-            (p.get("volume") or {}).get(
-                "h24"
-            )
-            or 0
-        )
-
-        price = float(
-            p.get("priceUsd")
-            or 0
-        )
-
-        if (
-            liquidity >= 100_000
-            and price > 0
-        ):
-
-            valid_pairs.append({
-                "price": price,
-                "volume24h": volume,
-                "liquidity": liquidity,
-                "url": p.get("url")
-            })
-
-    if not valid_pairs:
-        return None
-
-    return max(
-        valid_pairs,
-        key=lambda x: x["liquidity"]
-    )
-
-
-# ============================================================
-# BLOCKCHAIN
-# ============================================================
-
-def get_web3():
-
-    w3 = Web3(
-        Web3.HTTPProvider(
-            ETH_RPC,
-            request_kwargs={
-                "timeout": 20
-            }
-        )
-    )
-
-    if not w3.is_connected():
-        return None
-
-    return w3
-
-
-def decode_address(topic):
-
-    topic_hex = bytes(
-        topic
-    ).hex()
-
-    return Web3.to_checksum_address(
-        "0x" + topic_hex[-40:]
-    )
-
-
-# ============================================================
-# BURN SCANNER
-# ============================================================
-
-def get_burns():
-
-    try:
-
-        w3 = get_web3()
-
-        if not w3:
-            print("Ethereum RPC connection failed.")
-            return []
-
-        latest_block = (
-            w3.eth.block_number
-        )
-
-        scan_blocks = 5000
-        chunk_size = 500
-
-        from_block = max(
-            0,
-            latest_block - scan_blocks
-        )
-
-        to_block = latest_block
-
-        burns = []
-        total_logs = 0
-
-        print(
-            f"Burn scan: blocks "
-            f"{from_block}-{to_block}"
-        )
-
-        for start in range(
-            from_block,
-            to_block + 1,
-            chunk_size
-        ):
-
-            end = min(
-                start + chunk_size - 1,
-                to_block
-            )
-
-            try:
-
-                logs = w3.eth.get_logs({
-                    "fromBlock": start,
-                    "toBlock": end,
-                    "address": SHIB,
-                    "topics": [
-                        TRANSFER_TOPIC
-                    ]
-                })
-
-                total_logs += len(logs)
-
-            except Exception as e:
-
-                print(
-                    f"Burn chunk "
-                    f"{start}-{end}: {e}"
-                )
-
-                continue
-
-            for log in logs:
-
-                try:
-
-                    if len(
-                        log["topics"]
-                    ) < 3:
-                        continue
-
-                    to_addr = decode_address(
-                        log["topics"][2]
-                    )
-
-                    burn_addresses = {
-                        x.lower()
-                        for x in BURN_ADDRESSES
-                    }
-
-                    if (
-                        to_addr.lower()
-                        not in burn_addresses
-                    ):
-                        continue
-
-                    tx_hash = log[
-                        "transactionHash"
-                    ].hex()
-
-                    if (
-                        tx_hash
-                        in STATE["seen_burn_tx"]
-                    ):
-                        continue
-
-                    amount = (
-                        int(
-                            log["data"],
-                            16
-                        )
-                        / 10**18
-                    )
-
-                    if (
-                        amount
-                        < MIN_BURN_SHIB
-                    ):
-                        continue
-
-                    burns.append({
-                        "tx": tx_hash,
-                        "amount": amount,
-                        "block": log[
-                            "blockNumber"
-                        ]
-                    })
-
-                except Exception:
-                    continue
-
-        print(
-            "SHIB Transfer logs found:",
-            total_logs
-        )
-
-        print(
-            "Burn candidates found:",
-            len(burns)
-        )
-
-        return burns
-
-    except Exception as e:
-
-        print(
-            f"Burn scanner: {e}"
-        )
-
-        return []
-
-
-# ============================================================
-# WHALE SCANNER
-# ============================================================
-
-def get_whale_moves():
-
-    try:
-
-        w3 = get_web3()
-
-        if not w3:
-            print("Ethereum RPC connection failed.")
-            return []
-
-        latest_block = (
-            w3.eth.block_number
-        )
-
-        scan_blocks = 1000
-        chunk_size = 250
-
-        from_block = max(
-            0,
-            latest_block - scan_blocks
-        )
-
-        to_block = latest_block
-
-        whales = []
-        total_logs = 0
-
-        print(
-            f"Whale scan: blocks "
-            f"{from_block}-{to_block}"
-        )
-
-        for start in range(
-            from_block,
-            to_block + 1,
-            chunk_size
-        ):
-
-            end = min(
-                start + chunk_size - 1,
-                to_block
-            )
-
-            try:
-
-                logs = w3.eth.get_logs({
-                    "fromBlock": start,
-                    "toBlock": end,
-                    "address": SHIB,
-                    "topics": [
-                        TRANSFER_TOPIC
-                    ]
-                })
-
-                total_logs += len(logs)
-
-            except Exception as e:
-
-                print(
-                    f"Whale chunk "
-                    f"{start}-{end}: {e}"
-                )
-
-                continue
-
-            for log in logs:
-
-                try:
-
-                    if len(
-                        log["topics"]
-                    ) < 3:
-                        continue
-
-                    amount = (
-                        int(
-                            log["data"],
-                            16
-                        )
-                        / 10**18
-                    )
-
-                    if (
-                        amount
-                        < WHALE_THRESHOLD_SHIB
-                    ):
-                        continue
-
-                    tx_hash = log[
-                        "transactionHash"
-                    ].hex()
-
-                    if (
-                        tx_hash
-                        in STATE["seen_whale_tx"]
-                    ):
-                        continue
-
-                    from_addr = decode_address(
-                        log["topics"][1]
-                    )
-
-                    to_addr = decode_address(
-                        log["topics"][2]
-                    )
-
-                    burn_addresses = {
-                        x.lower()
-                        for x in BURN_ADDRESSES
-                    }
-
-                    if (
-                        to_addr.lower()
-                        in burn_addresses
-                    ):
-                        continue
-
-                    whales.append({
-                        "tx": tx_hash,
-                        "amount": amount,
-                        "from": from_addr,
-                        "to": to_addr,
-                        "block": log[
-                            "blockNumber"
-                        ]
-                    })
-
-                except Exception:
-                    continue
-
-        print(
-            "SHIB Transfer logs for whale scan:",
-            total_logs
-        )
-
-        print(
-            "Whale candidates found:",
-            len(whales)
-        )
-
-        return whales
-
-    except Exception as e:
-
-        print(
-            f"Whale scanner: {e}"
-        )
-
-        return []
-
-
-# ============================================================
-# NEWS
-# ============================================================
-
-def get_news():
-
-    now = datetime.now(
-        timezone.utc
-    )
-
-    results = []
-
-    priority_terms = [
-        "shiba inu",
-        "$shib",
-        "shibarium",
-        "shib burn",
-        "shib burns",
-        "shib whale",
-        "shiba whale",
-        "shibaswap",
-        "shib token",
-        "shiba inu ecosystem",
-    ]
-
-    blocked_terms = [
-        "price prediction",
-        "price forecast",
-        "price target",
-        "price prediction:",
-        "best crypto buy",
-        "better crypto buy",
-        "should you buy",
-        "should i buy",
-        "will shib reach",
-        "can shib reach",
-        "forecast",
-        "prediction",
-        "price outlook",
-        "breakout",
-        "potential",
-        "price increase",
-        "price surge",
-        "bullish",
-        "bearish",
-        "rally",
-        "target",
-    ]
-
-    event_terms = [
-        "burn",
-        "whale",
-        "shibarium",
-        "exchange",
-        "listing",
-        "delisting",
-        "wallet",
-        "transaction",
-        "token",
-        "launch",
-        "upgrade",
-        "update",
-        "hack",
-        "exploit",
-        "partnership",
-        "development",
-    ]
-
-    candidates = []
-
-    for feed_cfg in CONFIG["rss_feeds"]:
-
-        try:
-
-            feed = feedparser.parse(
-                feed_cfg["url"]
-            )
-
-            print(
-                f"News feed '{feed_cfg['name']}': "
-                f"{len(feed.entries)} entries received"
-            )
-
-            for item in feed.entries[:15]:
-
-                link = item.get(
-                    "link",
-                    ""
-                )
-
-                title = re.sub(
-                    r"\s+",
-                    " ",
-                    item.get(
-                        "title",
-                        ""
-                    )
-                ).strip()
-
-                if not title or not link:
-                    continue
-
-                title_lower = title.lower()
-
-                if any(
-                    term in title_lower
-                    for term in blocked_terms
-                ):
-                    continue
-
-                score = 0
-
-                for term in priority_terms:
-
-                    if term in title_lower:
-                        score += 10
-
-                for term in event_terms:
-
-                    if term in title_lower:
-                        score += 2
-
-                if score == 0:
-                    continue
-
-                uid = hashlib.sha256(
-                    link.encode()
-                ).hexdigest()
-
-                if uid in STATE["seen_news"]:
-                    continue
-
-                published = item.get(
-                    "published_parsed"
-                )
-
-                if not published:
-                    published = item.get(
-                        "updated_parsed"
-                    )
-
-                age_hours = None
-
-                if published:
-
-                    ts = datetime(
-                        *published[:6],
-                        tzinfo=timezone.utc
-                    )
-
-                    age_hours = (
-                        now - ts
-                    ).total_seconds() / 3600
-
-                    if age_hours > CONFIG.get(
-                        "news_max_age_hours",
-                        48
-                    ):
-                        continue
-
-                candidates.append({
-                    "title": title,
-                    "link": link,
-                    "source": feed_cfg["name"],
-                    "uid": uid,
-                    "score": score,
-                    "age_hours": age_hours
-                })
-
-        except Exception as e:
-
-            print(
-                f"News feed error: {e}"
-            )
-
-    candidates.sort(
-        key=lambda x: (
-            -x["score"],
-            x["age_hours"]
-            if x["age_hours"] is not None
-            else 9999
-        )
-    )
-
-    seen_uids = set()
-
-    for item in candidates:
-
-        if item["uid"] in seen_uids:
-            continue
-
-        seen_uids.add(
-            item["uid"]
-        )
-
-        results.append(
-            item
-        )
-
-    return results
-
-
-# ============================================================
-# POST GENERATORS
-# ============================================================
-
-def make_burn_post(b):
-
-    return (
-        "🔥 SHIB BURN ALERT\n\n"
-        f"{shib_number(b['amount'])} "
-        "$SHIB sent to a burn address.\n\n"
-        "Transaction:\n"
-        f"https://etherscan.io/tx/{b['tx']}\n\n"
-        "#SHIB #ShibaInu #SHIBBurn"
-    )
-
-
-def make_whale_post(w):
-
-    return (
-        "🐋 SHIB WHALE MOVEMENT\n\n"
-        f"{shib_number(w['amount'])} "
-        "$SHIB transferred.\n\n"
-        "From:\n"
-        f"{w['from']}\n\n"
-        "To:\n"
-        f"{w['to']}\n\n"
-        "Transaction:\n"
-        f"https://etherscan.io/tx/{w['tx']}\n\n"
-        "#SHIB #ShibaInu #SHIBWhale"
-    )
-
-
-def make_news_post(n):
-
-    return (
-        "📰 SHIB NEWS\n\n"
-        f"{n['title']}\n\n"
-        f"Source: {n['source']}\n"
-        f"{n['link']}\n\n"
-        "#SHIB #ShibaInu #Shibarium"
-    )
-
-
-def make_market_post(m):
-
-    return (
-        "📊 SHIB MARKET UPDATE\n\n"
-        f"Price: ${m['price']:.10f}\n"
-        f"24h volume: "
-        f"${m['volume24h']:,.0f}\n\n"
-        f"Data: {m['url']}\n\n"
-        "#SHIB #ShibaInu"
-    )
-
-
-# ============================================================
-# X API
-# ============================================================
-
-def x_access_token():
-
-    refresh = os.getenv(
-        "X_REFRESH_TOKEN"
-    )
-
-    client_id = os.getenv(
-        "X_CLIENT_ID"
-    )
-
-    client_secret = os.getenv(
-        "X_CLIENT_SECRET"
-    )
-
-    if not all([
-        refresh,
-        client_id,
-        client_secret
-    ]):
-        return None
-
-    r = requests.post(
-        "https://api.x.com/2/oauth2/token",
-        data={
-            "refresh_token": refresh,
-            "grant_type": "refresh_token",
-            "client_id": client_id
-        },
-        auth=(
-            client_id,
-            client_secret
-        ),
-        timeout=20
-    )
-
-    r.raise_for_status()
-
-    return r.json()[
-        "access_token"
-    ]
-
-
-def publish(text):
-
-    if os.getenv(
-        "DRY_RUN",
-        "true"
-    ).lower() == "true":
-
-        print(
-            "\n--- DRY RUN ---\n"
-            + text
-            + "\n--- END ---"
-        )
-
-        return True
-
-    token = x_access_token()
-
-    if not token:
-
-        print(
-            "Missing X OAuth credentials."
-        )
-
-        return False
-
-    r = requests.post(
-        "https://api.x.com/2/tweets",
-        headers={
-            "Authorization":
-                f"Bearer {token}",
-            "Content-Type":
-                "application/json"
-        },
-        json={
-            "text": text
-        },
-        timeout=20
-    )
-
-    print(
-        r.status_code,
-        r.text[:500]
-    )
-
-    return r.ok
-
-
-# ============================================================
-# MAIN
-# ============================================================
-
-def main():
-
-    candidates = []
-
-    # --------------------------------------------------------
-    # Burns
-    # --------------------------------------------------------
-
-    try:
-
-        burns = get_burns()
-
-        print(
-            "Burns found:",
-            len(burns)
-        )
-
-        for b in burns:
-
-            candidates.append(
-                (
-                    1,
-                    make_burn_post(b),
-                    "burn",
-                    b["tx"]
-                )
-            )
-
-    except Exception as e:
-
-        print(
-            "Burn scanner:",
-            e
-        )
-
-    # --------------------------------------------------------
-    # Whales
-    # --------------------------------------------------------
-
-    try:
-
-        whales = get_whale_moves()
-
-        print(
-            "Whale movements found:",
-            len(whales)
-        )
-
-        for w in whales:
-
-            candidates.append(
-                (
-                    2,
-                    make_whale_post(w),
-                    "whale",
-                    w["tx"]
-                )
-            )
-
-    except Exception as e:
-
-        print(
-            "Whale scanner:",
-            e
-        )
-
-    # --------------------------------------------------------
-    # News
-    # --------------------------------------------------------
-
-    try:
-
-        news = get_news()
-
-        print(
-            "News found:",
-            len(news)
-        )
-
-        for n in news:
-
-            candidates.append(
-                (
-                    3,
-                    make_news_post(n),
-                    "news",
-                    n["uid"]
-                )
-            )
-
-    except Exception as e:
-
-        print(
-            "News scanner:",
-            e
-        )
-
-    # --------------------------------------------------------
-    # Market
-    # --------------------------------------------------------
-
-    try:
-
-        m = get_price()
-
-        if m:
-
-            candidates.append(
-                (
-                    4,
-                    make_market_post(m),
-                    "market",
-                    None
-                )
-            )
-
-    except Exception as e:
-
-        print(
-            "Market scanner:",
-            e
-        )
-
-    # --------------------------------------------------------
-    # Sort
-    # --------------------------------------------------------
-
-    candidates.sort(
-        key=lambda x: x[0]
-    )
-
-    sent = 0
-
-    max_posts = int(
-        CONFIG.get(
-            "max_posts_per_run",
-            3
-        )
-    )
-
-    # --------------------------------------------------------
-    # Publish
-    # --------------------------------------------------------
-
-    for (
-        _,
-        text,
-        post_type,
-        identifier
-    ) in candidates:
-
-        if sent >= max_posts:
-            break
-
-        if already_posted(text):
-            continue
-
-        if publish(text):
-
-            remember_post(text)
-
-            if (
-                post_type == "burn"
-                and identifier
-            ):
-
-                STATE[
-                    "seen_burn_tx"
-                ].append(
-                    identifier
-                )
-
-            elif (
-                post_type == "whale"
-                and identifier
-            ):
-
-                STATE[
-                    "seen_whale_tx"
-                ].append(
-                    identifier
-                )
-
-            elif (
-                post_type == "news"
-                and identifier
-            ):
-
-                STATE[
-                    "seen_news"
-                ].append(
-                    identifier
-                )
-
-            sent += 1
-
-            time.sleep(2)
-
-    save_state()
-
-    print(
-        "Completed:",
-        sent
-    )
-
-
-if __name__ == "__main__":
-    main()
 import os
 import json
 import time
@@ -1150,125 +24,62 @@ from web3 import Web3
 # ============================================================
 
 ROOT = Path(__file__).resolve().parents[1]
-
-CONFIG = json.loads(
-    (ROOT / "config.json").read_text()
-)
-
+CONFIG = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
 STATE_FILE = ROOT / "data" / "state.json"
+STATE = json.loads(STATE_FILE.read_text(encoding="utf-8"))
 
-STATE = json.loads(
-    STATE_FILE.read_text()
-)
+DRY_RUN = os.getenv("DRY_RUN", "true").strip().lower() != "false"
 
 
 # ============================================================
 # SHIB / ETH CONFIG
 # ============================================================
 
-ETH_RPC = os.getenv(
-    "ETH_RPC_URL",
-    "https://ethereum-rpc.publicnode.com"
-)
+ETH_RPC = os.getenv("ETH_RPC_URL") or "https://ethereum-rpc.publicnode.com"
 
-SHIB = Web3.to_checksum_address(
-    "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE"
-)
+SHIB = Web3.to_checksum_address("0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE")
 
+# Topic addresses are compared as lowercase hex without 0x.
 BURN_ADDRESSES = {
-    Web3.to_checksum_address(
-        "0x000000000000000000000000000000000000dead"
-    ),
-    Web3.to_checksum_address(
-        "0x0000000000000000000000000000000000000000"
-    )
+    "000000000000000000000000000000000000dead",
+    "0000000000000000000000000000000000000000",
 }
 
-TRANSFER_TOPIC = (
-    "0x"
-    + Web3.keccak(
-        text="Transfer(address,uint256)"
-    ).hex().removeprefix("0x")
-)
+TRANSFER_TOPIC = "0x" + Web3.keccak(
+    text="Transfer(address,address,uint256)"
+).hex().removeprefix("0x")
 
-# Correct Transfer event topic
-TRANSFER_TOPIC = (
-    "0x"
-    + Web3.keccak(
-        text="Transfer(address,address,uint256)"
-    ).hex().removeprefix("0x")
-)
+MIN_BURN_SHIB = int(CONFIG.get("min_burn_shib", 1_000_000))
+WHALE_THRESHOLD_SHIB = int(CONFIG.get("whale_threshold_shib", 50_000_000_000))
 
-MIN_BURN_SHIB = int(
-    CONFIG.get(
-        "min_burn_shib",
-        1_000_000
-    )
-)
+# ~7200 blocks per day. A run normally scans only the blocks since the
+# previous run; after a long pause it jumps ahead instead of flooding.
+MAX_SCAN_BLOCKS = int(CONFIG.get("max_scan_blocks", 3000))
+FIRST_RUN_BLOCKS = 300
+CHUNK_SIZE = 500
 
-WHALE_THRESHOLD_SHIB = int(
-    CONFIG.get(
-        "whale_threshold_shib",
-        1_000_000_000
-    )
-)
+
+# ============================================================
+# THREADS CONFIG
+# ============================================================
+
+THREADS_API = "https://graph.threads.net/v1.0"
+THREADS_MAX_CHARS = 500
 
 
 # ============================================================
 # STATE
 # ============================================================
 
-STATE.setdefault(
-    "seen_news",
-    []
-)
-
-STATE.setdefault(
-    "seen_burn_tx",
-    []
-)
-
-STATE.setdefault(
-    "seen_whale_tx",
-    []
-)
-
-STATE.setdefault(
-    "posted_hashes",
-    []
-)
+for key in ("seen_news", "seen_burn_tx", "seen_whale_tx", "posted_hashes"):
+    STATE.setdefault(key, [])
 
 
 def save_state():
-
-    STATE["last_run"] = (
-        datetime.now(
-            timezone.utc
-        ).isoformat()
-    )
-
-    STATE["seen_news"] = (
-        STATE["seen_news"][-500:]
-    )
-
-    STATE["seen_burn_tx"] = (
-        STATE["seen_burn_tx"][-500:]
-    )
-
-    STATE["seen_whale_tx"] = (
-        STATE["seen_whale_tx"][-500:]
-    )
-
-    STATE["posted_hashes"] = (
-        STATE["posted_hashes"][-500:]
-    )
-
-    STATE_FILE.write_text(
-        json.dumps(
-            STATE,
-            indent=2
-        )
-    )
+    STATE["last_run"] = datetime.now(timezone.utc).isoformat()
+    for key in ("seen_news", "seen_burn_tx", "seen_whale_tx", "posted_hashes"):
+        STATE[key] = STATE[key][-500:]
+    STATE_FILE.write_text(json.dumps(STATE, indent=2), encoding="utf-8")
 
 
 # ============================================================
@@ -1276,27 +87,15 @@ def save_state():
 # ============================================================
 
 def post_hash(text):
-
-    return hashlib.sha256(
-        text.strip()
-        .lower()
-        .encode()
-    ).hexdigest()
+    return hashlib.sha256(text.strip().lower().encode()).hexdigest()
 
 
 def already_posted(text):
-
-    return (
-        post_hash(text)
-        in STATE["posted_hashes"]
-    )
+    return post_hash(text) in STATE["posted_hashes"]
 
 
 def remember_post(text):
-
-    STATE["posted_hashes"].append(
-        post_hash(text)
-    )
+    STATE["posted_hashes"].append(post_hash(text))
 
 
 # ============================================================
@@ -1304,8 +103,23 @@ def remember_post(text):
 # ============================================================
 
 def shib_number(n):
-
     return f"{n:,.0f}"
+
+
+def short_addr(addr):
+    return f"{addr[:6]}…{addr[-4:]}"
+
+
+def tx_hex(tx_hash):
+    h = tx_hash.hex() if hasattr(tx_hash, "hex") else str(tx_hash)
+    return "0x" + h.removeprefix("0x")
+
+
+def fit(text, limit=THREADS_MAX_CHARS):
+    """Threads rejects posts over 500 characters."""
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
 
 
 # ============================================================
@@ -1313,660 +127,214 @@ def shib_number(n):
 # ============================================================
 
 def get_price():
-
-    token_address = (
-        "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE"
-    )
-
     r = requests.get(
-        f"https://api.dexscreener.com/token-pairs/v1/ethereum/{token_address}",
-        timeout=15
+        f"https://api.dexscreener.com/token-pairs/v1/ethereum/{SHIB}",
+        timeout=15,
     )
-
     r.raise_for_status()
-
     pairs = r.json()
-
-    if not isinstance(
-        pairs,
-        list
-    ):
+    if not isinstance(pairs, list):
         return None
 
     valid_pairs = []
-
     for p in pairs:
-
-        liquidity = float(
-            (p.get("liquidity") or {}).get(
-                "usd"
-            )
-            or 0
-        )
-
-        volume = float(
-            (p.get("volume") or {}).get(
-                "h24"
-            )
-            or 0
-        )
-
-        price = float(
-            p.get("priceUsd")
-            or 0
-        )
-
-        if (
-            liquidity >= 100_000
-            and price > 0
-        ):
-
+        liquidity = float((p.get("liquidity") or {}).get("usd") or 0)
+        volume = float((p.get("volume") or {}).get("h24") or 0)
+        price = float(p.get("priceUsd") or 0)
+        change = (p.get("priceChange") or {}).get("h24")
+        if liquidity >= 100_000 and price > 0:
             valid_pairs.append({
                 "price": price,
                 "volume24h": volume,
                 "liquidity": liquidity,
-                "url": p.get("url")
+                "change24h": float(change) if change is not None else None,
+                "url": p.get("url"),
             })
 
     if not valid_pairs:
         return None
-
-    return max(
-        valid_pairs,
-        key=lambda x: x["liquidity"]
-    )
+    return max(valid_pairs, key=lambda x: x["liquidity"])
 
 
 def market_update_is_relevant(market):
-
-    last_price = STATE.get(
-        "last_market_price"
-    )
-
-    last_volume = STATE.get(
-        "last_market_volume"
-    )
-
-    # First market update is always allowed.
-    if (
-        last_price is None
-        or last_volume is None
-    ):
+    """First update always; then only on >=2% price or >=50% volume change."""
+    last_price = STATE.get("last_market_price")
+    last_volume = STATE.get("last_market_volume")
+    if not last_price or last_volume is None:
         return True
 
-    if last_price <= 0:
-        return True
-
-    price_change = (
-        abs(
-            market["price"]
-            - last_price
-        )
-        / last_price
-    )
-
-    volume_change = (
-        abs(
-            market["volume24h"]
-            - last_volume
-        )
-        / max(
-            last_volume,
-            1
-        )
-    )
-
-    # Publish only if:
-    # Price changed by at least 2%
-    # OR 24h volume changed by at least 50%.
-
-    return (
-        price_change >= 0.02
-        or volume_change >= 0.50
-    )
+    price_change = abs(market["price"] - last_price) / last_price
+    volume_change = abs(market["volume24h"] - last_volume) / max(last_volume, 1)
+    return price_change >= 0.02 or volume_change >= 0.50
 
 
 # ============================================================
-# BLOCKCHAIN
+# BLOCKCHAIN — burns and whales in one pass
 # ============================================================
 
 def get_web3():
-
-    w3 = Web3(
-        Web3.HTTPProvider(
-            ETH_RPC,
-            request_kwargs={
-                "timeout": 20
-            }
-        )
-    )
-
+    w3 = Web3(Web3.HTTPProvider(ETH_RPC, request_kwargs={"timeout": 20}))
     if not w3.is_connected():
         return None
-
     return w3
 
 
-def decode_address(topic):
-
-    topic_hex = bytes(
-        topic
-    ).hex()
-
-    return Web3.to_checksum_address(
-        "0x" + topic_hex[-40:]
-    )
+def topic_addr(topic):
+    return bytes(topic).hex()[-40:].lower()
 
 
-# ============================================================
-# BURN SCANNER
-# ============================================================
+def scan_chain():
+    """Returns (burns, whales) from the blocks not yet scanned.
 
-def get_burns():
+    Remembers the last scanned block in the state, so consecutive runs
+    neither miss nor repeat blocks. If a chunk fails, the scan stops there
+    and the next run resumes from that point.
+    """
+    w3 = get_web3()
+    if not w3:
+        print("Ethereum RPC connection failed.")
+        return [], []
 
-    try:
+    latest = w3.eth.block_number
+    last = STATE.get("last_scanned_block")
+    from_block = latest - FIRST_RUN_BLOCKS if last is None else last + 1
+    from_block = max(from_block, latest - MAX_SCAN_BLOCKS)
 
-        w3 = get_web3()
+    print(f"Chain scan: blocks {from_block}-{latest}")
 
-        if not w3:
-            print(
-                "Ethereum RPC connection failed."
-            )
-            return []
+    burns, whales = [], []
+    total_logs = 0
+    scanned_to = from_block - 1
 
-        latest_block = (
-            w3.eth.block_number
-        )
+    for start in range(from_block, latest + 1, CHUNK_SIZE):
+        end = min(start + CHUNK_SIZE - 1, latest)
+        try:
+            logs = w3.eth.get_logs({
+                "fromBlock": start,
+                "toBlock": end,
+                "address": SHIB,
+                "topics": [TRANSFER_TOPIC],
+            })
+        except Exception as e:
+            print(f"Chunk {start}-{end} failed: {e}")
+            break
 
-        scan_blocks = 5000
-        chunk_size = 500
+        total_logs += len(logs)
+        scanned_to = end
 
-        from_block = max(
-            0,
-            latest_block - scan_blocks
-        )
+        for log in logs:
+            if len(log["topics"]) < 3:
+                continue
+            amount = int.from_bytes(bytes(log["data"]), "big") / 10**18
+            to_addr = topic_addr(log["topics"][2])
+            tx = tx_hex(log["transactionHash"])
 
-        to_block = latest_block
-
-        burns = []
-        total_logs = 0
-
-        print(
-            f"Burn scan: blocks "
-            f"{from_block}-{to_block}"
-        )
-
-        for start in range(
-            from_block,
-            to_block + 1,
-            chunk_size
-        ):
-
-            end = min(
-                start + chunk_size - 1,
-                to_block
-            )
-
-            try:
-
-                logs = w3.eth.get_logs({
-                    "fromBlock": start,
-                    "toBlock": end,
-                    "address": SHIB,
-                    "topics": [
-                        TRANSFER_TOPIC
-                    ]
+            if to_addr in BURN_ADDRESSES:
+                if amount >= MIN_BURN_SHIB and tx not in STATE["seen_burn_tx"]:
+                    burns.append({"tx": tx, "amount": amount})
+            elif amount >= WHALE_THRESHOLD_SHIB and tx not in STATE["seen_whale_tx"]:
+                whales.append({
+                    "tx": tx,
+                    "amount": amount,
+                    "from": Web3.to_checksum_address("0x" + topic_addr(log["topics"][1])),
+                    "to": Web3.to_checksum_address("0x" + to_addr),
                 })
 
-                total_logs += len(logs)
+    STATE["last_scanned_block"] = scanned_to
+    print(f"SHIB Transfer logs: {total_logs} | burns: {len(burns)} | whales: {len(whales)}")
 
-            except Exception as e:
-
-                print(
-                    f"Burn chunk "
-                    f"{start}-{end}: {e}"
-                )
-
-                continue
-
-            for log in logs:
-
-                try:
-
-                    if len(
-                        log["topics"]
-                    ) < 3:
-                        continue
-
-                    to_addr = decode_address(
-                        log["topics"][2]
-                    )
-
-                    burn_addresses = {
-                        x.lower()
-                        for x in BURN_ADDRESSES
-                    }
-
-                    if (
-                        to_addr.lower()
-                        not in burn_addresses
-                    ):
-                        continue
-
-                    tx_hash = log[
-                        "transactionHash"
-                    ].hex()
-
-                    if (
-                        tx_hash
-                        in STATE["seen_burn_tx"]
-                    ):
-                        continue
-
-                    amount = (
-                        int(
-                            log["data"],
-                            16
-                        )
-                        / 10**18
-                    )
-
-                    if (
-                        amount
-                        < MIN_BURN_SHIB
-                    ):
-                        continue
-
-                    burns.append({
-                        "tx": tx_hash,
-                        "amount": amount,
-                        "block": log[
-                            "blockNumber"
-                        ]
-                    })
-
-                except Exception:
-                    continue
-
-        print(
-            "SHIB Transfer logs found:",
-            total_logs
-        )
-
-        print(
-            "Burn candidates found:",
-            len(burns)
-        )
-
-        return burns
-
-    except Exception as e:
-
-        print(
-            f"Burn scanner: {e}"
-        )
-
-        return []
-
-
-# ============================================================
-# WHALE SCANNER
-# ============================================================
-
-def get_whale_moves():
-
-    try:
-
-        w3 = get_web3()
-
-        if not w3:
-            print(
-                "Ethereum RPC connection failed."
-            )
-            return []
-
-        latest_block = (
-            w3.eth.block_number
-        )
-
-        scan_blocks = 1000
-        chunk_size = 250
-
-        from_block = max(
-            0,
-            latest_block - scan_blocks
-        )
-
-        to_block = latest_block
-
-        whales = []
-        total_logs = 0
-
-        print(
-            f"Whale scan: blocks "
-            f"{from_block}-{to_block}"
-        )
-
-        for start in range(
-            from_block,
-            to_block + 1,
-            chunk_size
-        ):
-
-            end = min(
-                start + chunk_size - 1,
-                to_block
-            )
-
-            try:
-
-                logs = w3.eth.get_logs({
-                    "fromBlock": start,
-                    "toBlock": end,
-                    "address": SHIB,
-                    "topics": [
-                        TRANSFER_TOPIC
-                    ]
-                })
-
-                total_logs += len(logs)
-
-            except Exception as e:
-
-                print(
-                    f"Whale chunk "
-                    f"{start}-{end}: {e}"
-                )
-
-                continue
-
-            for log in logs:
-
-                try:
-
-                    if len(
-                        log["topics"]
-                    ) < 3:
-                        continue
-
-                    amount = (
-                        int(
-                            log["data"],
-                            16
-                        )
-                        / 10**18
-                    )
-
-                    if (
-                        amount
-                        < WHALE_THRESHOLD_SHIB
-                    ):
-                        continue
-
-                    tx_hash = log[
-                        "transactionHash"
-                    ].hex()
-
-                    if (
-                        tx_hash
-                        in STATE["seen_whale_tx"]
-                    ):
-                        continue
-
-                    from_addr = decode_address(
-                        log["topics"][1]
-                    )
-
-                    to_addr = decode_address(
-                        log["topics"][2]
-                    )
-
-                    burn_addresses = {
-                        x.lower()
-                        for x in BURN_ADDRESSES
-                    }
-
-                    if (
-                        to_addr.lower()
-                        in burn_addresses
-                    ):
-                        continue
-
-                    whales.append({
-                        "tx": tx_hash,
-                        "amount": amount,
-                        "from": from_addr,
-                        "to": to_addr,
-                        "block": log[
-                            "blockNumber"
-                        ]
-                    })
-
-                except Exception:
-                    continue
-
-        print(
-            "SHIB Transfer logs for whale scan:",
-            total_logs
-        )
-
-        print(
-            "Whale candidates found:",
-            len(whales)
-        )
-
-        return whales
-
-    except Exception as e:
-
-        print(
-            f"Whale scanner: {e}"
-        )
-
-        return []
+    burns.sort(key=lambda x: -x["amount"])
+    whales.sort(key=lambda x: -x["amount"])
+    return burns, whales
 
 
 # ============================================================
 # NEWS
 # ============================================================
 
+PRIORITY_TERMS = [
+    "shiba inu", "$shib", "shibarium", "shib burn", "shib burns",
+    "shib whale", "shiba whale", "shibaswap", "shib token",
+    "shiba inu ecosystem",
+]
+
+BLOCKED_TERMS = [
+    "price prediction", "price forecast", "price target",
+    "best crypto buy", "better crypto buy", "should you buy",
+    "should i buy", "will shib reach", "can shib reach", "forecast",
+    "prediction", "price outlook", "breakout", "potential",
+    "price increase", "price surge", "bullish", "bearish", "rally",
+    "target", "millionaire", "100x", "1000x", "next shiba",
+]
+
+EVENT_TERMS = [
+    "burn", "whale", "shibarium", "exchange", "listing", "delisting",
+    "wallet", "transaction", "token", "launch", "upgrade", "update",
+    "hack", "exploit", "partnership", "development",
+]
+
+
 def get_news():
-
-    now = datetime.now(
-        timezone.utc
-    )
-
-    results = []
-
-    priority_terms = [
-        "shiba inu",
-        "$shib",
-        "shibarium",
-        "shib burn",
-        "shib burns",
-        "shib whale",
-        "shiba whale",
-        "shibaswap",
-        "shib token",
-        "shiba inu ecosystem",
-    ]
-
-    blocked_terms = [
-        "price prediction",
-        "price forecast",
-        "price target",
-        "price prediction:",
-        "best crypto buy",
-        "better crypto buy",
-        "should you buy",
-        "should i buy",
-        "will shib reach",
-        "can shib reach",
-        "forecast",
-        "prediction",
-        "price outlook",
-        "breakout",
-        "potential",
-        "price increase",
-        "price surge",
-        "bullish",
-        "bearish",
-        "rally",
-        "target",
-    ]
-
-    event_terms = [
-        "burn",
-        "whale",
-        "shibarium",
-        "exchange",
-        "listing",
-        "delisting",
-        "wallet",
-        "transaction",
-        "token",
-        "launch",
-        "upgrade",
-        "update",
-        "hack",
-        "exploit",
-        "partnership",
-        "development",
-    ]
-
-    candidates = []
+    now = datetime.now(timezone.utc)
+    max_age = CONFIG.get("news_max_age_hours", 48)
+    candidates = {}
 
     for feed_cfg in CONFIG["rss_feeds"]:
-
         try:
-
-            feed = feedparser.parse(
-                feed_cfg["url"]
-            )
-
-            print(
-                f"News feed '{feed_cfg['name']}': "
-                f"{len(feed.entries)} entries received"
-            )
+            feed = feedparser.parse(feed_cfg["url"])
+            print(f"News feed '{feed_cfg['name']}': {len(feed.entries)} entries")
 
             for item in feed.entries[:15]:
-
-                link = item.get(
-                    "link",
-                    ""
-                )
-
-                title = re.sub(
-                    r"\s+",
-                    " ",
-                    item.get(
-                        "title",
-                        ""
-                    )
-                ).strip()
-
+                link = item.get("link", "")
+                title = re.sub(r"\s+", " ", item.get("title", "")).strip()
                 if not title or not link:
                     continue
 
                 title_lower = title.lower()
-
-                if any(
-                    term in title_lower
-                    for term in blocked_terms
-                ):
+                if any(term in title_lower for term in BLOCKED_TERMS):
                     continue
 
-                score = 0
-
-                for term in priority_terms:
-
-                    if term in title_lower:
-                        score += 10
-
-                for term in event_terms:
-
-                    if term in title_lower:
-                        score += 2
-
+                score = sum(10 for t in PRIORITY_TERMS if t in title_lower)
+                score += sum(2 for t in EVENT_TERMS if t in title_lower)
                 if score == 0:
                     continue
 
-                uid = hashlib.sha256(
-                    link.encode()
-                ).hexdigest()
-
-                if uid in STATE["seen_news"]:
+                # Same story from both feeds -> same title -> one candidate.
+                uid = hashlib.sha256(link.encode()).hexdigest()
+                title_uid = hashlib.sha256(title_lower.encode()).hexdigest()
+                if uid in STATE["seen_news"] or title_uid in STATE["seen_news"]:
                     continue
 
-                published = item.get(
-                    "published_parsed"
-                )
-
-                if not published:
-
-                    published = item.get(
-                        "updated_parsed"
-                    )
-
+                published = item.get("published_parsed") or item.get("updated_parsed")
                 age_hours = None
-
                 if published:
-
-                    ts = datetime(
-                        *published[:6],
-                        tzinfo=timezone.utc
-                    )
-
-                    age_hours = (
-                        now - ts
-                    ).total_seconds() / 3600
-
-                    if age_hours > CONFIG.get(
-                        "news_max_age_hours",
-                        48
-                    ):
+                    ts = datetime(*published[:6], tzinfo=timezone.utc)
+                    age_hours = (now - ts).total_seconds() / 3600
+                    if age_hours > max_age:
                         continue
 
-                candidates.append({
+                # Google News titles end in " - Publisher"; keep the
+                # publisher as the source line.
+                publisher = (item.get("source") or {}).get("title")
+                if publisher and title.endswith(" - " + publisher):
+                    title = title[: -len(" - " + publisher)].strip()
+
+                candidates.setdefault(title_uid, {
                     "title": title,
                     "link": link,
-                    "source": feed_cfg["name"],
-                    "uid": uid,
+                    "source": publisher or feed_cfg["name"],
+                    "uids": [uid, title_uid],
                     "score": score,
-                    "age_hours": age_hours
+                    "age_hours": age_hours,
                 })
 
         except Exception as e:
+            print(f"News feed error: {e}")
 
-            print(
-                f"News feed error: {e}"
-            )
-
-    candidates.sort(
-        key=lambda x: (
-            -x["score"],
-            x["age_hours"]
-            if x["age_hours"] is not None
-            else 9999
-        )
+    return sorted(
+        candidates.values(),
+        key=lambda x: (-x["score"], x["age_hours"] if x["age_hours"] is not None else 9999),
     )
-
-    seen_uids = set()
-
-    for item in candidates:
-
-        if item["uid"] in seen_uids:
-            continue
-
-        seen_uids.add(
-            item["uid"]
-        )
-
-        results.append(
-            item
-        )
-
-    return results
 
 
 # ============================================================
@@ -1974,147 +342,109 @@ def get_news():
 # ============================================================
 
 def make_burn_post(b):
-
     return (
         "🔥 SHIB BURN ALERT\n\n"
-        f"{shib_number(b['amount'])} "
-        "$SHIB sent to a burn address.\n\n"
-        "Transaction:\n"
-        f"https://etherscan.io/tx/{b['tx']}\n\n"
+        f"{shib_number(b['amount'])} $SHIB sent to a burn address.\n\n"
+        f"Tx: https://etherscan.io/tx/{b['tx']}\n\n"
         "#SHIB #ShibaInu #SHIBBurn"
     )
 
 
-def make_whale_post(w):
-
+def make_whale_post(w, price=None):
+    usd = f" (~${w['amount'] * price:,.0f})" if price else ""
     return (
         "🐋 SHIB WHALE MOVEMENT\n\n"
-        f"{shib_number(w['amount'])} "
-        "$SHIB transferred.\n\n"
-        "From:\n"
-        f"{w['from']}\n\n"
-        "To:\n"
-        f"{w['to']}\n\n"
-        "Transaction:\n"
-        f"https://etherscan.io/tx/{w['tx']}\n\n"
+        f"{shib_number(w['amount'])} $SHIB{usd} transferred.\n\n"
+        f"From: {short_addr(w['from'])}\n"
+        f"To: {short_addr(w['to'])}\n\n"
+        f"Tx: https://etherscan.io/tx/{w['tx']}\n\n"
         "#SHIB #ShibaInu #SHIBWhale"
     )
 
 
 def make_news_post(n):
-
-    return (
-        "📰 SHIB NEWS\n\n"
-        f"{n['title']}\n\n"
-        f"Source: {n['source']}\n"
-        f"{n['link']}\n\n"
-        "#SHIB #ShibaInu #Shibarium"
-    )
+    tail = f"\n\nSource: {n['source']}\n{n['link']}\n\n#SHIB #ShibaInu #Shibarium"
+    head = "📰 SHIB NEWS\n\n"
+    room = THREADS_MAX_CHARS - len(head) - len(tail)
+    title = n["title"] if len(n["title"]) <= room else n["title"][: room - 1].rstrip() + "…"
+    return head + title + tail
 
 
 def make_market_post(m):
-
+    change = ""
+    if m.get("change24h") is not None:
+        arrow = "📈" if m["change24h"] >= 0 else "📉"
+        change = f"24h change: {arrow} {m['change24h']:+.2f}%\n"
     return (
         "📊 SHIB MARKET UPDATE\n\n"
         f"Price: ${m['price']:.10f}\n"
-        f"24h volume: "
-        f"${m['volume24h']:,.0f}\n\n"
+        f"{change}"
+        f"24h volume: ${m['volume24h']:,.0f}\n"
+        f"Liquidity: ${m['liquidity']:,.0f}\n\n"
         f"Data: {m['url']}\n\n"
         "#SHIB #ShibaInu"
     )
 
 
 # ============================================================
-# X API
+# THREADS API
 # ============================================================
 
-def x_access_token():
+def threads_token():
+    return (os.getenv("THREADS_ACCESS_TOKEN") or "").strip() or None
 
-    refresh = os.getenv(
-        "X_REFRESH_TOKEN"
-    )
 
-    client_id = os.getenv(
-        "X_CLIENT_ID"
-    )
+def threads_request(method, path, **params):
+    params["access_token"] = threads_token()
+    r = requests.request(method, f"{THREADS_API}/{path}", params=params, timeout=30)
+    if not r.ok:
+        raise RuntimeError(f"Threads {method} /{path}: {r.status_code} {r.text[:300]}")
+    return r.json()
 
-    client_secret = os.getenv(
-        "X_CLIENT_SECRET"
-    )
 
-    if not all([
-        refresh,
-        client_id,
-        client_secret
-    ]):
-        return None
+def threads_check():
+    """Confirms the token works before trying to publish anything."""
+    me = threads_request("GET", "me", fields="id,username")
+    print(f"Threads account: @{me.get('username')} ({me.get('id')})")
+    try:
+        quota = threads_request(
+            "GET", "me/threads_publishing_limit", fields="quota_usage,config"
+        )["data"][0]
+        print(f"Threads quota: {quota.get('quota_usage')}/"
+              f"{(quota.get('config') or {}).get('quota_total')} posts in 24h")
+    except Exception as e:
+        print(f"Threads quota check skipped: {e}")
 
-    r = requests.post(
-        "https://api.x.com/2/oauth2/token",
-        data={
-            "refresh_token": refresh,
-            "grant_type": "refresh_token",
-            "client_id": client_id
-        },
-        auth=(
-            client_id,
-            client_secret
-        ),
-        timeout=20
-    )
 
-    r.raise_for_status()
+def threads_publish(text):
+    """Two steps: create a TEXT container, then publish it."""
+    container = threads_request("POST", "me/threads", media_type="TEXT", text=text)["id"]
 
-    return r.json()[
-        "access_token"
-    ]
+    # Meta recommends waiting until the container is FINISHED before
+    # publishing; text containers are normally ready within seconds.
+    for _ in range(10):
+        status = threads_request("GET", container, fields="status,error_message")
+        if status.get("status") == "FINISHED":
+            break
+        if status.get("status") in ("ERROR", "EXPIRED"):
+            raise RuntimeError(f"Threads container {status}")
+        time.sleep(3)
+
+    post = threads_request("POST", "me/threads_publish", creation_id=container)
+    print(f"Published on Threads: {post.get('id')}")
+    return True
 
 
 def publish(text):
-
-    if os.getenv(
-        "DRY_RUN",
-        "true"
-    ).lower() == "true":
-
-        print(
-            "\n--- DRY RUN ---\n"
-            + text
-            + "\n--- END ---"
-        )
-
+    text = fit(text)
+    if DRY_RUN:
+        print("\n--- DRY RUN ---\n" + text + "\n--- END ---")
         return True
-
-    token = x_access_token()
-
-    if not token:
-
-        print(
-            "Missing X OAuth credentials."
-        )
-
+    try:
+        return threads_publish(text)
+    except Exception as e:
+        print(f"Publish failed: {e}")
         return False
-
-    r = requests.post(
-        "https://api.x.com/2/tweets",
-        headers={
-            "Authorization":
-                f"Bearer {token}",
-            "Content-Type":
-                "application/json"
-        },
-        json={
-            "text": text
-        },
-        timeout=20
-    )
-
-    print(
-        r.status_code,
-        r.text[:500]
-    )
-
-    return r.ok
 
 
 # ============================================================
@@ -2122,226 +452,76 @@ def publish(text):
 # ============================================================
 
 def main():
+    print(f"ShibRadar run — {'DRY RUN' if DRY_RUN else 'LIVE (Threads)'}")
 
+    if not DRY_RUN:
+        if not threads_token():
+            raise SystemExit("THREADS_ACCESS_TOKEN is missing (GitHub Secret).")
+        threads_check()
+
+    # Each candidate: (priority, text, type, state identifiers)
     candidates = []
-
-    # --------------------------------------------------------
-    # Burns
-    # --------------------------------------------------------
+    market = None
 
     try:
-
-        burns = get_burns()
-
-        print(
-            "Burns found:",
-            len(burns)
-        )
-
-        for b in burns:
-
-            candidates.append(
-                (
-                    1,
-                    make_burn_post(b),
-                    "burn",
-                    b["tx"]
-                )
-            )
-
+        market = get_price()
     except Exception as e:
-
-        print(
-            "Burn scanner:",
-            e
-        )
-
-    # --------------------------------------------------------
-    # Whales
-    # --------------------------------------------------------
+        print("Market scanner:", e)
 
     try:
-
-        whales = get_whale_moves()
-
-        print(
-            "Whale movements found:",
-            len(whales)
-        )
-
-        for w in whales:
-
-            candidates.append(
-                (
-                    2,
-                    make_whale_post(w),
-                    "whale",
-                    w["tx"]
-                )
-            )
-
+        burns, whales = scan_chain()
+        price = market["price"] if market else None
+        candidates += [(1, make_burn_post(b), "burn", [b["tx"]]) for b in burns]
+        candidates += [(2, make_whale_post(w, price), "whale", [w["tx"]]) for w in whales]
     except Exception as e:
-
-        print(
-            "Whale scanner:",
-            e
-        )
-
-    # --------------------------------------------------------
-    # News
-    # --------------------------------------------------------
+        print("Chain scanner:", e)
 
     try:
-
         news = get_news()
-
-        print(
-            "News found:",
-            len(news)
-        )
-
-        for n in news:
-
-            candidates.append(
-                (
-                    3,
-                    make_news_post(n),
-                    "news",
-                    n["uid"]
-                )
-            )
-
+        print("News found:", len(news))
+        candidates += [(3, make_news_post(n), "news", n["uids"]) for n in news]
     except Exception as e:
+        print("News scanner:", e)
 
-        print(
-            "News scanner:",
-            e
-        )
+    if market:
+        if market_update_is_relevant(market):
+            candidates.append((4, make_market_post(market), "market", []))
+        else:
+            print("Market update skipped: change not significant enough.")
 
-    # --------------------------------------------------------
-    # Market
-    # --------------------------------------------------------
+    candidates.sort(key=lambda x: x[0])
 
-    try:
-
-        m = get_price()
-
-        if m:
-
-            if market_update_is_relevant(m):
-
-                candidates.append(
-                    (
-                        4,
-                        make_market_post(m),
-                        "market",
-                        None
-                    )
-                )
-
-                STATE[
-                    "last_market_price"
-                ] = m["price"]
-
-                STATE[
-                    "last_market_volume"
-                ] = m["volume24h"]
-
-            else:
-
-                print(
-                    "Market update skipped: "
-                    "change not significant enough."
-                )
-
-    except Exception as e:
-
-        print(
-            "Market scanner:",
-            e
-        )
-
-    # --------------------------------------------------------
-    # Sort
-    # --------------------------------------------------------
-
-    candidates.sort(
-        key=lambda x: x[0]
-    )
+    max_posts = int(CONFIG.get("max_posts_per_run", 3))
+    max_per_type = CONFIG.get("max_posts_per_type", {"whale": 1, "news": 2, "market": 1})
+    state_key = {"burn": "seen_burn_tx", "whale": "seen_whale_tx", "news": "seen_news"}
 
     sent = 0
+    sent_by_type = {}
 
-    max_posts = int(
-        CONFIG.get(
-            "max_posts_per_run",
-            3
-        )
-    )
-
-    # --------------------------------------------------------
-    # Publish
-    # --------------------------------------------------------
-
-    for (
-        _,
-        text,
-        post_type,
-        identifier
-    ) in candidates:
-
+    for _, text, post_type, identifiers in candidates:
         if sent >= max_posts:
             break
-
+        if sent_by_type.get(post_type, 0) >= max_per_type.get(post_type, max_posts):
+            continue
         if already_posted(text):
             continue
+        if not publish(text):
+            continue
 
-        if publish(text):
+        remember_post(text)
+        if post_type in state_key:
+            STATE[state_key[post_type]].extend(identifiers)
+        if post_type == "market":
+            STATE["last_market_price"] = market["price"]
+            STATE["last_market_volume"] = market["volume24h"]
 
-            remember_post(text)
-
-            if (
-                post_type == "burn"
-                and identifier
-            ):
-
-                STATE[
-                    "seen_burn_tx"
-                ].append(
-                    identifier
-                )
-
-            elif (
-                post_type == "whale"
-                and identifier
-            ):
-
-                STATE[
-                    "seen_whale_tx"
-                ].append(
-                    identifier
-                )
-
-            elif (
-                post_type == "news"
-                and identifier
-            ):
-
-                STATE[
-                    "seen_news"
-                ].append(
-                    identifier
-                )
-
-            sent += 1
-
-            time.sleep(2)
+        sent += 1
+        sent_by_type[post_type] = sent_by_type.get(post_type, 0) + 1
+        if not DRY_RUN:
+            time.sleep(5)
 
     save_state()
-
-    print(
-        "Completed:",
-        sent
-    )
+    print("Completed:", sent, sent_by_type)
 
 
 if __name__ == "__main__":

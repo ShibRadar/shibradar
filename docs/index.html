@@ -64,5 +64,22 @@ Verify the address and network before sending.
 
 </div>
 
+<div class="card" id="oauth" style="display:none">
+<h2>Threads authorization code</h2>
+<p>Copy this code into <code>python tools/threads_token.py code &lt;CODE&gt;</code>:</p>
+<div class="address" id="oauth-code"></div>
+</div>
+
+<script>
+// Redirect target of the Threads login used once to set up the bot.
+var c = new URLSearchParams(location.search).get("code");
+if (c) {
+  document.getElementById("oauth-code").textContent = c.replace(/#_$/, "");
+  document.getElementById("oauth").style.display = "block";
+}
+</script>
+
+<p><small><a href="privacy.html">Privacy policy</a></small></p>
+
 </body>
 </html>
