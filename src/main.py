@@ -3,7 +3,8 @@
 Run:  python -m src.main
 Env:  THREADS_ACCESS_TOKEN  long-lived Threads token (GitHub Secret)
       DRY_RUN               "true" (default) prints posts instead of publishing
-      ETH_RPC_URL           optional Ethereum RPC (defaults to a public node)
+      ETH_RPC_URL           optional private Ethereum RPC, tried before the
+                            public ones listed in config.json
 """
 
 import os
@@ -13,6 +14,7 @@ import hashlib
 import re
 from pathlib import Path
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 import requests
 import feedparser
@@ -35,7 +37,15 @@ DRY_RUN = os.getenv("DRY_RUN", "true").strip().lower() != "false"
 # SHIB / ETH CONFIG
 # ============================================================
 
-ETH_RPC = os.getenv("ETH_RPC_URL") or "https://ethereum-rpc.publicnode.com"
+# Public RPCs that answer eth_getLogs (tested 6 Oct 2026). Tried in order,
+# per request: one refusing (403/429, common for GitHub's datacenter IPs)
+# falls through to the next.
+DEFAULT_RPC_URLS = [
+    "https://ethereum-rpc.publicnode.com",
+    "https://rpc.mevblocker.io",
+    "https://gateway.tenderly.co/public/mainnet",
+    "https://eth.drpc.org",
+]
 
 SHIB = Web3.to_checksum_address("0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE")
 
@@ -56,7 +66,12 @@ WHALE_THRESHOLD_SHIB = int(CONFIG.get("whale_threshold_shib", 50_000_000_000))
 # previous run; after a long pause it jumps ahead instead of flooding.
 MAX_SCAN_BLOCKS = int(CONFIG.get("max_scan_blocks", 3000))
 FIRST_RUN_BLOCKS = 300
-CHUNK_SIZE = 500
+# publicnode answers 403 and drpc 400 to 500-block eth_getLogs ranges;
+# 100 blocks works on all of them (measured 6 Oct 2026).
+CHUNK_SIZE = 100
+# Stay a few blocks behind the head: fallback RPCs may lag slightly, and
+# the newest blocks can still be reorganised.
+CONFIRMATIONS = 3
 
 
 # ============================================================
@@ -172,11 +187,27 @@ def market_update_is_relevant(market):
 # BLOCKCHAIN — burns and whales in one pass
 # ============================================================
 
-def get_web3():
-    w3 = Web3(Web3.HTTPProvider(ETH_RPC, request_kwargs={"timeout": 20}))
-    if not w3.is_connected():
-        return None
-    return w3
+def rpc_providers():
+    """(label, Web3) pairs: the ETH_RPC_URL secret first, then public RPCs."""
+    providers = []
+    secret = os.getenv("ETH_RPC_URL")
+    if secret:
+        providers.append(("ETH_RPC_URL", secret))
+    for url in CONFIG.get("eth_rpc_urls", DEFAULT_RPC_URLS):
+        providers.append((urlparse(url).hostname, url))
+    return [
+        (label, Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 20})))
+        for label, url in providers
+    ]
+
+
+def short_error(label, e):
+    # The scan report is committed to a public repository. The ETH_RPC_URL
+    # secret may carry an API key, and requests puts the URL path in its
+    # messages ("url: /v3/<key>"), so for it only the error type is kept.
+    if label == "ETH_RPC_URL":
+        return type(e).__name__
+    return re.sub(r"https?://\S+", "<url>", f"{type(e).__name__}: {e}")[:120]
 
 
 def topic_addr(topic):
@@ -187,15 +218,34 @@ def scan_chain():
     """Returns (burns, whales) from the blocks not yet scanned.
 
     Remembers the last scanned block in the state, so consecutive runs
-    neither miss nor repeat blocks. If a chunk fails, the scan stops there
-    and the next run resumes from that point.
+    neither miss nor repeat blocks. If a chunk fails on every RPC, the scan
+    stops there and the next run resumes from that point. A short report
+    is kept in STATE["chain_scan"] (public: readable without logs access).
     """
-    w3 = get_web3()
-    if not w3:
-        print("Ethereum RPC connection failed.")
+    providers = rpc_providers()
+    rpc_ok, rpc_errors = {}, {}
+
+    def first_ok(call):
+        for label, w3 in providers:
+            try:
+                result = call(w3)
+            except Exception as e:
+                rpc_errors[label] = short_error(label, e)
+                continue
+            rpc_ok[label] = rpc_ok.get(label, 0) + 1
+            return result
+        return None
+
+    head = first_ok(lambda w3: w3.eth.block_number)
+    if head is None:
+        print("Ethereum RPC: every provider failed:", rpc_errors)
+        STATE["chain_scan"] = {
+            "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "rpc_errors": rpc_errors,
+        }
         return [], []
 
-    latest = w3.eth.block_number
+    latest = head - CONFIRMATIONS
     last = STATE.get("last_scanned_block")
     from_block = latest - FIRST_RUN_BLOCKS if last is None else last + 1
     from_block = max(from_block, latest - MAX_SCAN_BLOCKS)
@@ -208,15 +258,14 @@ def scan_chain():
 
     for start in range(from_block, latest + 1, CHUNK_SIZE):
         end = min(start + CHUNK_SIZE - 1, latest)
-        try:
-            logs = w3.eth.get_logs({
-                "fromBlock": start,
-                "toBlock": end,
-                "address": SHIB,
-                "topics": [TRANSFER_TOPIC],
-            })
-        except Exception as e:
-            print(f"Chunk {start}-{end} failed: {e}")
+        logs = first_ok(lambda w3: w3.eth.get_logs({
+            "fromBlock": start,
+            "toBlock": end,
+            "address": SHIB,
+            "topics": [TRANSFER_TOPIC],
+        }))
+        if logs is None:
+            print(f"Chunk {start}-{end} failed on every RPC: {rpc_errors}")
             break
 
         total_logs += len(logs)
@@ -241,7 +290,18 @@ def scan_chain():
                 })
 
     STATE["last_scanned_block"] = scanned_to
+    STATE["chain_scan"] = {
+        "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "blocks": f"{from_block}-{scanned_to}",
+        "complete": scanned_to >= latest,
+        "logs": total_logs,
+        "burns": len(burns),
+        "whales": len(whales),
+        "rpc_ok": rpc_ok,
+        "rpc_errors": rpc_errors,
+    }
     print(f"SHIB Transfer logs: {total_logs} | burns: {len(burns)} | whales: {len(whales)}")
+    print(f"RPC calls ok: {rpc_ok} | errors: {rpc_errors}")
 
     burns.sort(key=lambda x: -x["amount"])
     whales.sort(key=lambda x: -x["amount"])

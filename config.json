@@ -9,6 +9,12 @@
   "min_burn_shib": 1000000,
   "whale_threshold_shib": 50000000000,
   "max_scan_blocks": 3000,
+  "eth_rpc_urls": [
+    "https://ethereum-rpc.publicnode.com",
+    "https://rpc.mevblocker.io",
+    "https://gateway.tenderly.co/public/mainnet",
+    "https://eth.drpc.org"
+  ],
   "news_max_age_hours": 48,
   "rss_feeds": [
     {
