@@ -33,6 +33,7 @@ jobs:
       - name: Run bot
         env:
           THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_TOKEN_KEY: ${{ secrets.THREADS_TOKEN_KEY }}
           ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
           # Manual run: the chosen input. Scheduled run: repository
           # variable DRY_RUN (Settings > Variables). Default: true.
@@ -43,8 +44,16 @@ jobs:
         run: |
           git config user.name "ShibRadar Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/state.json
+          # state.json and the encrypted, self-renewed Threads token.
+          git add data/
           git diff --cached --quiet && exit 0
           git commit -m "bot: update state"
-          git pull --rebase --autostash
-          git push
+          for attempt in 1 2 3; do
+            if git pull --rebase --autostash; then
+              git push && exit 0
+            else
+              git rebase --abort || true
+            fi
+            sleep 10
+          done
+          exit 1

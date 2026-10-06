@@ -2,6 +2,8 @@
 
 Run:  python -m src.main
 Env:  THREADS_ACCESS_TOKEN  long-lived Threads token (GitHub Secret)
+      THREADS_TOKEN_KEY     key that encrypts the token the bot renews itself
+                            (GitHub Secret, any long random string)
       DRY_RUN               "true" (default) prints posts instead of publishing
       ETH_RPC_URL           optional private Ethereum RPC, tried before the
                             public ones listed in config.json
@@ -10,14 +12,16 @@ Env:  THREADS_ACCESS_TOKEN  long-lived Threads token (GitHub Secret)
 import os
 import json
 import time
+import base64
 import hashlib
 import re
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from urllib.parse import urlparse
 
 import requests
 import feedparser
+from cryptography.fernet import Fernet
 from web3 import Web3
 
 
@@ -447,15 +451,178 @@ def make_market_post(m):
 
 
 # ============================================================
+# THREADS TOKEN — renewed by the bot itself
+# ============================================================
+# Long-lived Threads tokens last 60 days and can be refreshed once they are
+# a day old. The bot refreshes the token weekly and keeps the current one
+# encrypted in data/threads_token.enc, with the THREADS_TOKEN_KEY secret as
+# the key (the repository is public). Nothing has to be renewed by hand,
+# and no personal access token is needed to update GitHub Secrets.
+
+TOKEN_FILE = ROOT / "data" / "threads_token.enc"
+TOKEN_REFRESH_DAYS = 7
+TOKEN_RETRY_HOURS = 12
+
+# The token in use (from the encrypted file or the secret).
+TOKEN = {"value": None}
+
+
+def scrub(e):
+    """Error text safe for the public logs and state: never the token.
+
+    requests puts the full URL, query string included, in connection
+    errors, and the token travels as the access_token parameter.
+    """
+    text = re.sub(r"access_token=[^&\s'\"]+", "access_token=***", str(e))
+    if TOKEN["value"]:
+        text = text.replace(TOKEN["value"], "***")
+    return text[:300]
+
+
+def mask(token):
+    # GitHub hides secrets in the Actions logs, but a renewed token is not a
+    # secret: register it so it is hidden as well.
+    if token and os.getenv("GITHUB_ACTIONS") == "true":
+        print(f"::add-mask::{token}")
+
+
+def token_cipher():
+    key = (os.getenv("THREADS_TOKEN_KEY") or "").strip()
+    if not key:
+        return None
+    return Fernet(base64.urlsafe_b64encode(hashlib.sha256(key.encode()).digest()))
+
+
+def token_seed(token):
+    # Identifies the THREADS_ACCESS_TOKEN a chain of renewals started from.
+    return hashlib.sha256(token.encode()).hexdigest()[:16]
+
+
+def now_iso():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def hours_since(iso):
+    return (datetime.now(timezone.utc) - datetime.fromisoformat(iso)).total_seconds() / 3600
+
+
+def save_token(record):
+    cipher = token_cipher()
+    if not cipher:
+        return
+    TOKEN_FILE.write_bytes(cipher.encrypt(json.dumps(record).encode()))
+    STATE["threads_token"].update({
+        "refreshed_at": record["refreshed_at"],
+        "expires_at": record["expires_at"],
+    })
+
+
+def load_token():
+    """Sets TOKEN and returns its record, or None when no token is configured.
+
+    The renewed token saved in the repository is used, unless the
+    THREADS_ACCESS_TOKEN secret was replaced since: then the secret wins
+    and a new chain of renewals starts from it.
+    """
+    secret = (os.getenv("THREADS_ACCESS_TOKEN") or "").strip() or None
+    mask(secret)
+    cipher = token_cipher()
+    record = None
+
+    if cipher and TOKEN_FILE.exists():
+        try:
+            saved = json.loads(cipher.decrypt(TOKEN_FILE.read_bytes()))
+            if not secret or saved["seed"] == token_seed(secret):
+                record = saved
+        except Exception as e:
+            print("Saved Threads token unreadable:", type(e).__name__)
+
+    if record is None and secret:
+        # Its age is unknown: refreshed_at stays empty so that the first
+        # renewal is attempted right away (it succeeds once the token is a
+        # day old) and gives the real expiry date.
+        record = {
+            "token": secret,
+            "seed": token_seed(secret),
+            "first_seen": now_iso(),
+            "refreshed_at": None,
+            "expires_at": None,
+        }
+        STATE["threads_token"] = {}
+        save_token(record)
+
+    if record is None:
+        return None
+
+    STATE.setdefault("threads_token", {})
+    mask(record["token"])
+    TOKEN["value"] = record["token"]
+    if not cipher:
+        print("THREADS_TOKEN_KEY missing: the token cannot be renewed automatically.")
+    return record
+
+
+def refresh_token_if_due(record):
+    """Weekly renewal; after a failure, retries every TOKEN_RETRY_HOURS."""
+    info = STATE["threads_token"]
+    if not token_cipher():
+        return  # a renewed token that cannot be saved would be lost
+    if record["refreshed_at"] and hours_since(record["refreshed_at"]) < TOKEN_REFRESH_DAYS * 24:
+        return
+    if info.get("last_error") and hours_since(info["last_attempt"]) < TOKEN_RETRY_HOURS:
+        return  # failed recently: wait before trying again
+
+    info["last_attempt"] = now_iso()
+    try:
+        r = requests.get(
+            "https://graph.threads.net/refresh_access_token",
+            params={"grant_type": "th_refresh_token", "access_token": record["token"]},
+            timeout=30,
+        )
+        if not r.ok:
+            raise RuntimeError(f"{r.status_code} {r.text[:200]}")
+        data = r.json()
+        new_token = data["access_token"]
+    except Exception as e:
+        info["last_error"] = scrub(e)
+        print("Threads token renewal failed:", info["last_error"])
+        return
+
+    mask(new_token)
+    record.update({
+        "token": new_token,
+        "refreshed_at": now_iso(),
+        "expires_at": (datetime.now(timezone.utc)
+                       + timedelta(seconds=int(data.get("expires_in", 0)))
+                       ).isoformat(timespec="seconds"),
+    })
+    TOKEN["value"] = new_token
+    save_token(record)
+    info["last_error"] = None
+    print("Threads token renewed; valid until", record["expires_at"])
+
+
+def token_problem(record):
+    """A reason to alert the owner (failed run -> GitHub e-mail), or None."""
+    if not record:
+        return None
+    if not token_cipher():
+        return "THREADS_TOKEN_KEY secret is missing: the token will expire in 60 days"
+    if record["refreshed_at"]:
+        days = hours_since(record["refreshed_at"]) / 24
+        if days > 2 * TOKEN_REFRESH_DAYS:
+            return f"Threads token not renewed for {days:.0f} days"
+    elif hours_since(record["first_seen"]) > 72:
+        return "Threads token could not be renewed for 3 days"
+    return None
+
+
+# ============================================================
 # THREADS API
 # ============================================================
 
-def threads_token():
-    return (os.getenv("THREADS_ACCESS_TOKEN") or "").strip() or None
-
-
 def threads_request(method, path, **params):
-    params["access_token"] = threads_token()
+    params["access_token"] = TOKEN["value"]
     r = requests.request(method, f"{THREADS_API}/{path}", params=params, timeout=30)
     if not r.ok:
         raise RuntimeError(f"Threads {method} /{path}: {r.status_code} {r.text[:300]}")
@@ -473,7 +640,7 @@ def threads_check():
         print(f"Threads quota: {quota.get('quota_usage')}/"
               f"{(quota.get('config') or {}).get('quota_total')} posts in 24h")
     except Exception as e:
-        print(f"Threads quota check skipped: {e}")
+        print(f"Threads quota check skipped: {scrub(e)}")
 
 
 def threads_publish(text):
@@ -503,7 +670,7 @@ def publish(text):
     try:
         return threads_publish(text)
     except Exception as e:
-        print(f"Publish failed: {e}")
+        print(f"Publish failed: {scrub(e)}")
         return False
 
 
@@ -514,10 +681,23 @@ def publish(text):
 def main():
     print(f"ShibRadar run — {'DRY RUN' if DRY_RUN else 'LIVE (Threads)'}")
 
+    # Kept alive in DRY_RUN too, so a long test period never lets it expire.
+    token_record = None
+    try:
+        token_record = load_token()
+        if token_record:
+            refresh_token_if_due(token_record)
+    except Exception as e:
+        print("Threads token maintenance:", scrub(e))
+
     if not DRY_RUN:
-        if not threads_token():
+        if not TOKEN["value"]:
             raise SystemExit("THREADS_ACCESS_TOKEN is missing (GitHub Secret).")
-        threads_check()
+        try:
+            threads_check()
+        except Exception as e:
+            save_state()
+            raise SystemExit(f"Threads check failed: {scrub(e)}")
 
     # Each candidate: (priority, text, type, state identifiers)
     candidates = []
@@ -582,6 +762,12 @@ def main():
 
     save_state()
     print("Completed:", sent, sent_by_type)
+
+    # Posts went out already; failing the run now only triggers GitHub's
+    # e-mail about a failed workflow, so the owner hears about it in time.
+    problem = token_problem(token_record)
+    if problem:
+        raise SystemExit(f"ATTENTION: {problem}")
 
 
 if __name__ == "__main__":

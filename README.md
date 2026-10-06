@@ -13,9 +13,11 @@ Google News  ──> news (RSS)    ──┘
 ## Files
 - `src/main.py` — the bot (scanners, filters, posts, Threads publishing)
 - `config.json` — thresholds and limits (public, no secrets)
-- `data/state.json` — what was already seen/posted (committed by the bot)
+- `data/state.json` — what was already seen/posted, plus a scan report
+  (`chain_scan`) and the token's renewal dates (committed by the bot)
+- `data/threads_token.enc` — the current Threads token, encrypted (renewed
+  weekly by the bot itself; the key is the `THREADS_TOKEN_KEY` secret)
 - `.github/workflows/bot.yml` — runs every 30 min
-- `.github/workflows/refresh-token.yml` — renews the Threads token weekly
 - `tools/threads_token.py` — one-time token setup (run locally)
 - `docs/` — GitHub Pages site (donations, OAuth return page, privacy)
 
@@ -49,20 +51,21 @@ pip install requests
 python tools/threads_token.py url          # open link as @ShibRadar, accept
 python tools/threads_token.py code <CODE>  # code shown on the site
 ```
-It prints a long-lived token (60 days).
+It prints a long-lived token (60 days) and a random encryption key.
 
 ### 3. GitHub
 Repository → Settings → Secrets and variables → Actions:
 - Secret `THREADS_ACCESS_TOKEN` = token from step 2
-- Secret `GH_PAT` = fine-grained personal access token, this repository
-  only, permission **Secrets: Read and write** (used to save the renewed
-  token every week)
+- Secret `THREADS_TOKEN_KEY` = key from step 2
 - Variable `DRY_RUN` = `false` (when ready to publish automatically)
+
+From then on the bot renews the token every week by itself and keeps it
+encrypted in `data/threads_token.enc`. If the renewal keeps failing, the
+run fails on purpose, so GitHub sends an e-mail about it.
 
 ### 4. Test
 Actions → **ShibRadar Bot** → Run workflow → `dry_run = false` → check the
-post on Threads. Then Actions → **Refresh Threads token** → Run workflow,
-to confirm the renewal works.
+post on Threads.
 
 ## Local test
 ```

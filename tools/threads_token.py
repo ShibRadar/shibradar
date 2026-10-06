@@ -7,7 +7,9 @@ Run locally — never in GitHub Actions, never commit the output.
        You are sent to the ShibRadar site, which shows the CODE.
 
   2) python tools/threads_token.py code <CODE>
-       Exchanges the code for a long-lived token (60 days) and checks it.
+       Exchanges the code for a long-lived token (60 days), checks it and
+       prints the two GitHub Secrets to create: THREADS_ACCESS_TOKEN and a
+       random THREADS_TOKEN_KEY. From then on the bot renews the token itself.
 
   Alternative to 1+2, if you generated a token in the Meta dashboard:
      python tools/threads_token.py token <SHORT_LIVED_TOKEN>
@@ -19,6 +21,7 @@ or asked interactively (the secret is not echoed).
 import os
 import sys
 import getpass
+import secrets
 from urllib.parse import urlencode
 
 import requests
@@ -57,9 +60,14 @@ def report(token, expires_in):
     }, timeout=30))
     print(f"\nOK — account @{me['username']} (id {me['id']}), "
           f"valid for ~{expires_in // 86400} days.\n")
-    print("Put this value in the GitHub Secret THREADS_ACCESS_TOKEN:\n")
+    print("Create these two GitHub Secrets "
+          "(repository > Settings > Secrets and variables > Actions):\n")
+    print("THREADS_ACCESS_TOKEN")
     print(token)
-    print()
+    print("\nTHREADS_TOKEN_KEY")
+    print(secrets.token_urlsafe(32))
+    print("\nThe key encrypts the token the bot renews by itself. Keep both private;")
+    print("if you ever replace the token, the same key can stay.\n")
 
 
 def main():
