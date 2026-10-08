@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-10-08T18:02:55.035594+00:00",
+  "last_run": "2026-10-08T18:44:22.450406+00:00",
   "seen_news": [
     "907446422455780fd013f36e49e444c5182fb00e839c92812dbfe9bd39895d8a",
     "3bff352c9fdbe676678802fcf4654b54c9918552a4ea973e66fc371bed5485ce",
@@ -142,7 +142,9 @@
     "bc9b8ee459e5d4ce5da33f30f64a8c47a96b047f43a0a41c3847a19ac4a9f741",
     "b3a5fa8874ede7d85462f5b32f3256a5ae13831c327648a1edb98eb0a3818164",
     "c9b6211c5d859a9e128742ac1c13a4f5e108832000a04cdbcef7c566d37c9975",
-    "3c0235de19320e3bba37e88b73eb57dc845fe098b3f2c4f60e43b52398d8c2ec"
+    "3c0235de19320e3bba37e88b73eb57dc845fe098b3f2c4f60e43b52398d8c2ec",
+    "52a4a816359ba00a5faf58be8fbd9f7a32eb2c9249c751bce7e4c9ac921965f3",
+    "f1466235a93e75123bdb41f784cc1c5e2b7de398ea7642f5474ea49e72bef079"
   ],
   "seen_burn_tx": [],
   "posted_hashes": [
@@ -500,7 +502,8 @@
     "7b8bc5a0447cb4ff433b47510afd6b9981bdece13459650ebb47c5d61d988b1f",
     "214850e79c3869effd5d8cac45548ff76bf9d55c1d1ac5a3974ffc92430fbe84",
     "23dc7acbeff9fe27484b3842c14a462fe050c01c7ee33c4f1f04ff2f262d2f0c",
-    "8eddd0d3ee54ed7f4d316a7b5539b571e5d00ce49d2905621cdf0b249bf19fe5"
+    "8eddd0d3ee54ed7f4d316a7b5539b571e5d00ce49d2905621cdf0b249bf19fe5",
+    "741742dbdfa0a4af1375e46a4154512203232788f668373b018cd65df716bee1"
   ],
   "seen_whale_tx": [
     "0x85eb3aba4d7fbf90d657564427020911df4b4a3e1eb54cee553555078c9f260b",
@@ -516,16 +519,16 @@
   ],
   "last_market_price": 5.197e-06,
   "last_market_volume": 159209.07,
-  "last_scanned_block": 26149343,
+  "last_scanned_block": 26149546,
   "chain_scan": {
-    "at": "2026-10-08T18:02:53+00:00",
-    "blocks": "26149224-26149343",
+    "at": "2026-10-08T18:44:21+00:00",
+    "blocks": "26149344-26149546",
     "complete": true,
-    "logs": 72,
+    "logs": 111,
     "burns": 0,
     "whales": 0,
     "rpc_ok": {
-      "ethereum-rpc.publicnode.com": 3
+      "ethereum-rpc.publicnode.com": 4
     },
     "rpc_errors": {}
   }
