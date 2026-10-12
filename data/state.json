@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-10-12T19:06:51.072987+00:00",
+  "last_run": "2026-10-12T19:39:37.686431+00:00",
   "seen_news": [
     "907446422455780fd013f36e49e444c5182fb00e839c92812dbfe9bd39895d8a",
     "3bff352c9fdbe676678802fcf4654b54c9918552a4ea973e66fc371bed5485ce",
@@ -206,7 +206,9 @@
     "f6395a2ce6750a4df8aa5b266af55faf6f25d4dbf42d7eae437b0de285661362",
     "a925d0ff3b4db440417124f8f13dddedd3db927f169f17c47719ec2b53e8b639",
     "8f22c6f9397ff9f53bd93f9cb070c8d08a01002cebda893388e09ab2f2fffa4e",
-    "0fdc9c8567b188678093760d6f59cfac0ce7273e1b63417fcb5d973c19d89691"
+    "0fdc9c8567b188678093760d6f59cfac0ce7273e1b63417fcb5d973c19d89691",
+    "e4c5dba0e98bd65a528e54d43afecb7b01caa1efffa4243d37107e6bb16afc9a",
+    "16a0148522b109802e8c6109459f169711fe5aa8330c1b529874f9e5190b8f05"
   ],
   "seen_burn_tx": [
     "0xfc41d7a26c082153aae4cecefea985081468bdbbde17739edd9b8f94d754f7e9",
@@ -617,7 +619,9 @@
     "b57a864ee167d40ccced0e2d0159241b975ae8f9020b4a87c6d46e155351d0bb",
     "23180cc74f5ad7c5927a66c24f572ca3339a456260b1ea8358ae4390665da566",
     "4ee2d1126c662b6473edd95c6d5ce7cca692b1798b0c40e94f8a749854ecb1be",
-    "8353c87d9ede2b28792d12cee0be6e9889d65cdde6522ded34e7b6de5e07e68e"
+    "8353c87d9ede2b28792d12cee0be6e9889d65cdde6522ded34e7b6de5e07e68e",
+    "067b07ea561306baf80988f505ea4f6ab2a8ba7a3515561c562c3d81ab5bfa55",
+    "be6773b2f362f2fbe597a9c737d90c0f384fc7df6369e7fd46414babeec94f3d"
   ],
   "seen_whale_tx": [
     "0x85eb3aba4d7fbf90d657564427020911df4b4a3e1eb54cee553555078c9f260b",
@@ -641,14 +645,14 @@
     "0xcbc59499c9d85ba71bf3dfe14b870479f9a630f0a70a1eba5204c683720a0845",
     "0x3f9d098128d022544807d6e80e9540d1db4a3ace3372a9bdbdb3b15ed91b3c58"
   ],
-  "last_market_price": 5.418e-06,
-  "last_market_volume": 36778.36,
-  "last_scanned_block": 26178376,
+  "last_market_price": 5.331e-06,
+  "last_market_volume": 56036.27,
+  "last_scanned_block": 26178539,
   "chain_scan": {
-    "at": "2026-10-12T19:06:49+00:00",
-    "blocks": "26178272-26178376",
+    "at": "2026-10-12T19:39:36+00:00",
+    "blocks": "26178377-26178539",
     "complete": true,
-    "logs": 51,
+    "logs": 130,
     "burns": 0,
     "whales": 0,
     "rpc_ok": {
