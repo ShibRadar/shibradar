@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-10-12T11:07:02.287560+00:00",
+  "last_run": "2026-10-12T11:43:03.510471+00:00",
   "seen_news": [
     "907446422455780fd013f36e49e444c5182fb00e839c92812dbfe9bd39895d8a",
     "3bff352c9fdbe676678802fcf4654b54c9918552a4ea973e66fc371bed5485ce",
@@ -640,12 +640,12 @@
   ],
   "last_market_price": 5.536e-06,
   "last_market_volume": 32465.9,
-  "last_scanned_block": 26175984,
+  "last_scanned_block": 26176164,
   "chain_scan": {
-    "at": "2026-10-12T11:07:01+00:00",
-    "blocks": "26175862-26175984",
+    "at": "2026-10-12T11:43:02+00:00",
+    "blocks": "26175985-26176164",
     "complete": true,
-    "logs": 38,
+    "logs": 74,
     "burns": 0,
     "whales": 0,
     "rpc_ok": {
