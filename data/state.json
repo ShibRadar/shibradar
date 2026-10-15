@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-10-15T20:54:19.098754+00:00",
+  "last_run": "2026-10-15T21:17:32.866679+00:00",
   "seen_news": [
     "907446422455780fd013f36e49e444c5182fb00e839c92812dbfe9bd39895d8a",
     "3bff352c9fdbe676678802fcf4654b54c9918552a4ea973e66fc371bed5485ce",
@@ -260,7 +260,9 @@
     "dce5d72edb86b2c68e679bd55dd390ab722669f6f1d121cea77aff2c60ba069d",
     "58891f6891c155c1990deca9323fd429f46ab4b27f7f6e15479ca57d0806746c",
     "05c57a8ccc8ab21d62b0b8689c43401949796177ea142d92f8a89b5595eb2e76",
-    "97e95ce210da6fccd0bd595c3f6fa38152f7e6e4b627f7c83aa67ca8c1f8f453"
+    "97e95ce210da6fccd0bd595c3f6fa38152f7e6e4b627f7c83aa67ca8c1f8f453",
+    "01ef6c59bc893d2f20ec127a528b432174043d8c1ff7e5b4217393e9d837327d",
+    "9383ba9bf0a0cdccb27891102571d390533ab3ae942f3189d2beb81471fd8116"
   ],
   "seen_burn_tx": [
     "0xfc41d7a26c082153aae4cecefea985081468bdbbde17739edd9b8f94d754f7e9",
@@ -725,7 +727,8 @@
     "6f8ecfa46565241b05cc0c53001e5e217a6479384d33b2677e34c0ba997522ba",
     "5b06775d593f79e563bc7996b506f69d68fd840e473c261168b692ccc387a704",
     "d76a3cddfe8580b534442330f80b90fd1ec56be7912975a11b1feb7cddac3ef6",
-    "e121d2f21be372f757ff0d646ec3e0ef4c6eccaddf44c229c8596d6c8e5d42ea"
+    "e121d2f21be372f757ff0d646ec3e0ef4c6eccaddf44c229c8596d6c8e5d42ea",
+    "66e39431f5b087f43448dfb45c66a95d16250aa1945e361739613af2b4adb361"
   ],
   "seen_whale_tx": [
     "0x85eb3aba4d7fbf90d657564427020911df4b4a3e1eb54cee553555078c9f260b",
@@ -768,16 +771,16 @@
   ],
   "last_market_price": 5.033e-06,
   "last_market_volume": 68148.02,
-  "last_scanned_block": 26200436,
+  "last_scanned_block": 26200552,
   "chain_scan": {
-    "at": "2026-10-15T20:54:17+00:00",
-    "blocks": "26200235-26200436",
+    "at": "2026-10-15T21:17:31+00:00",
+    "blocks": "26200437-26200552",
     "complete": true,
-    "logs": 95,
+    "logs": 75,
     "burns": 0,
-    "whales": 1,
+    "whales": 0,
     "rpc_ok": {
-      "ethereum-rpc.publicnode.com": 4
+      "ethereum-rpc.publicnode.com": 3
     },
     "rpc_errors": {}
   }
