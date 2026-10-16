@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-10-16T04:17:58.835957+00:00",
+  "last_run": "2026-10-16T04:56:54.347411+00:00",
   "seen_news": [
     "907446422455780fd013f36e49e444c5182fb00e839c92812dbfe9bd39895d8a",
     "3bff352c9fdbe676678802fcf4654b54c9918552a4ea973e66fc371bed5485ce",
@@ -264,7 +264,9 @@
     "01ef6c59bc893d2f20ec127a528b432174043d8c1ff7e5b4217393e9d837327d",
     "9383ba9bf0a0cdccb27891102571d390533ab3ae942f3189d2beb81471fd8116",
     "eb6d95710cbb4ecb7577fd5caf0bcf8c3814285928e9b3c952016e3d77f03438",
-    "e45056e04643184db4bdb4a77ad6d809d9a834421bd35ea2680c239c3496d526"
+    "e45056e04643184db4bdb4a77ad6d809d9a834421bd35ea2680c239c3496d526",
+    "e4d36f654baf4f992cef5787f9d2fb89e5deb4a4bbab0cb60cafa8d2b7449132",
+    "46c796999d998dec4db4e897ec992e79048b8d525dcd44170aa68be46ad20cad"
   ],
   "seen_burn_tx": [
     "0xfc41d7a26c082153aae4cecefea985081468bdbbde17739edd9b8f94d754f7e9",
@@ -733,7 +735,8 @@
     "66e39431f5b087f43448dfb45c66a95d16250aa1945e361739613af2b4adb361",
     "eaeea5f1317e119fa481e1c774a75e97c8649d3a5144fb94a3b3683fd47f93ea",
     "2eb8bdb4f9f3547686cd03fd22a99165334b4347ae4727cc39eba3b49b3646cd",
-    "84ac509f7fa61ecc0d01ea2f79fbae3d1283402ac43c265e936def6fff30cfe6"
+    "84ac509f7fa61ecc0d01ea2f79fbae3d1283402ac43c265e936def6fff30cfe6",
+    "4e15758651d1f948e23619d83edbaddb64e40c9ce5ed82ba1ca7a8db44a83444"
   ],
   "seen_whale_tx": [
     "0x85eb3aba4d7fbf90d657564427020911df4b4a3e1eb54cee553555078c9f260b",
@@ -777,12 +780,12 @@
   ],
   "last_market_price": 5.144e-06,
   "last_market_volume": 52313.0,
-  "last_scanned_block": 26202645,
+  "last_scanned_block": 26202839,
   "chain_scan": {
-    "at": "2026-10-16T04:17:57+00:00",
-    "blocks": "26202538-26202645",
+    "at": "2026-10-16T04:56:53+00:00",
+    "blocks": "26202646-26202839",
     "complete": true,
-    "logs": 54,
+    "logs": 71,
     "burns": 0,
     "whales": 0,
     "rpc_ok": {
