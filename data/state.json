@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-10-18T19:10:30.074330+00:00",
+  "last_run": "2026-10-18T19:44:31.778839+00:00",
   "seen_news": [
     "907446422455780fd013f36e49e444c5182fb00e839c92812dbfe9bd39895d8a",
     "3bff352c9fdbe676678802fcf4654b54c9918552a4ea973e66fc371bed5485ce",
@@ -822,7 +822,8 @@
     "00e129c6400b9f3ff5595c037e4bf5db3846a4ee1ee1c7a25b4ea6fdec32b218",
     "2a96873973aa7eb85b9b44e28a29a90e03ef163e7027c7a8b9172345a253600a",
     "3a695d213afce420c82e1799a5ec3dd7632b1887589148ea82b03120f40a609b",
-    "82b0f194e8629fa11c24353d4c8096e30c26776a97749346e41248dd14228d6e"
+    "82b0f194e8629fa11c24353d4c8096e30c26776a97749346e41248dd14228d6e",
+    "80f5242a4064064a560a04c1b9006685d55f85b901908d7cfb611a8b09b3be36"
   ],
   "seen_whale_tx": [
     "0x85eb3aba4d7fbf90d657564427020911df4b4a3e1eb54cee553555078c9f260b",
@@ -869,18 +870,18 @@
     "0x3209ee7b828effc2a7be5438d2f2921e352a248253e954e33143a799d2085756",
     "0x4cd0cadf4778c580aeb56e4e2753ae5d993a950d86a052ec2a71a1bcbc48d9a8"
   ],
-  "last_market_price": 4.973e-06,
-  "last_market_volume": 42457.35,
-  "last_scanned_block": 26221447,
+  "last_market_price": 4.837e-06,
+  "last_market_volume": 29332.65,
+  "last_scanned_block": 26221617,
   "chain_scan": {
-    "at": "2026-10-18T19:10:28+00:00",
-    "blocks": "26221358-26221447",
+    "at": "2026-10-18T19:44:30+00:00",
+    "blocks": "26221448-26221617",
     "complete": true,
-    "logs": 50,
+    "logs": 78,
     "burns": 0,
     "whales": 0,
     "rpc_ok": {
-      "ethereum-rpc.publicnode.com": 2
+      "ethereum-rpc.publicnode.com": 3
     },
     "rpc_errors": {}
   }
