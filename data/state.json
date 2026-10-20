@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-10-20T21:17:30.732049+00:00",
+  "last_run": "2026-10-20T21:54:38.095461+00:00",
   "seen_news": [
     "907446422455780fd013f36e49e444c5182fb00e839c92812dbfe9bd39895d8a",
     "3bff352c9fdbe676678802fcf4654b54c9918552a4ea973e66fc371bed5485ce",
@@ -352,14 +352,15 @@
     "336fa60a9aeef758d3d97bbd6dff7251d1226d69b4298fcfb832a7042cf60793",
     "e82d81deaabd5c36c8762bf622588a42f2db2efea4d51ac919f07c450d32cfdf",
     "2a6af0ade8ace0152a06ddf2f55a052735890f18c169d08760f90ee348efa8ba",
-    "6e5ae0d5ebd249cb488fc8d4eebc9db58b7ca7db097bfc1cb70425de5b8e508a"
+    "6e5ae0d5ebd249cb488fc8d4eebc9db58b7ca7db097bfc1cb70425de5b8e508a",
+    "ef6e3d26e2ed8adde9c4986e598468cdea16f7ae6cefc9ac3acd740d3556598c",
+    "e841ebee99fb93fdc93eda42e5c1766135d5796b6de2120c0bccf03267163ccb"
   ],
   "seen_burn_tx": [
     "0xfc41d7a26c082153aae4cecefea985081468bdbbde17739edd9b8f94d754f7e9",
     "0x9906f0e71f6942bb9905b091b825acf2e93ef4f87a3705785a7ba6844777fd18"
   ],
   "posted_hashes": [
-    "3c7336f0a84940c738b5240fbefe4e17be9ee4a33cbc7a48d5efe99a256c398c",
     "8391d8faa5f857769fe53bfd18c33c1835a7fc8b790bd5a8b9addc308c03ad5b",
     "52ad4b4af6e2bd38c39de3883b7a1539e723b73cfdd2b0b020eff78118a420dd",
     "699844fc713e23925ca1f422672a946b608e392545e79f04a58790eed817372a",
@@ -858,7 +859,8 @@
     "7311ecb16d951ba0d558f5af464c325980845c313e128d86d79e148d653ccea8",
     "3ff99a49d73d6bf183ed8dcb1d87d5381d81ae1883c8e8ade2dec8367fd9b96b",
     "592608359c4228b93ceeb90848684dee6db6e22015dd30c263277e60e1292482",
-    "58ffcc94ac953be5e977c01880c8ff5f83eab3bea2611e19ebba2c4943854e1d"
+    "58ffcc94ac953be5e977c01880c8ff5f83eab3bea2611e19ebba2c4943854e1d",
+    "5979e122821796091ef2d698b86559d9aec75c0df87b2b59cf386942c1a25bd6"
   ],
   "seen_whale_tx": [
     "0x85eb3aba4d7fbf90d657564427020911df4b4a3e1eb54cee553555078c9f260b",
@@ -916,12 +918,12 @@
   ],
   "last_market_price": 5.063e-06,
   "last_market_volume": 11778.75,
-  "last_scanned_block": 26236428,
+  "last_scanned_block": 26236613,
   "chain_scan": {
-    "at": "2026-10-20T21:17:29+00:00",
-    "blocks": "26236317-26236428",
+    "at": "2026-10-20T21:54:37+00:00",
+    "blocks": "26236429-26236613",
     "complete": true,
-    "logs": 96,
+    "logs": 102,
     "burns": 0,
     "whales": 0,
     "rpc_ok": {
