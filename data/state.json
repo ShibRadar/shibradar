@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-10-21T07:13:10.344852+00:00",
+  "last_run": "2026-10-21T08:03:02.728984+00:00",
   "seen_news": [
     "907446422455780fd013f36e49e444c5182fb00e839c92812dbfe9bd39895d8a",
     "3bff352c9fdbe676678802fcf4654b54c9918552a4ea973e66fc371bed5485ce",
@@ -369,7 +369,6 @@
     "0x9906f0e71f6942bb9905b091b825acf2e93ef4f87a3705785a7ba6844777fd18"
   ],
   "posted_hashes": [
-    "80abfb784fc7b740853f68e8a105fdc887bc1aaf3611a783144ebfbb9b0f396e",
     "58dbf1d4c8b22270dd8aa9e0bf087cb5f19f28f7378628f37046778563ec8de9",
     "4c702cf32c53665dbef083d81c8671c399e91e1eb57df066fbdcdaeedcdef581",
     "7f70f5f17c98b656b2bb9c5caec5612c1186c47667640b5cce8c535c19a923ca",
@@ -868,7 +867,8 @@
     "1bdb94e85e31fb18652b7f8069382fc858a8939fe9cede8d71d02fae222521f6",
     "13ec436c970b4c830e31d1da527f62acb195b41bff295b805035e5e8b7a45922",
     "4becbeaa729a0c29f8fda80e1f4c175605548947368f76accc88d75d553ff1fe",
-    "389edf7e05500215a3e88950114416636d80854f57a0af0fb9ac4acddae97cca"
+    "389edf7e05500215a3e88950114416636d80854f57a0af0fb9ac4acddae97cca",
+    "70d35d870cccc026bbc91894b9edda4b409ed5b2adb51d6de230055e18c7e4ed"
   ],
   "seen_whale_tx": [
     "0x85eb3aba4d7fbf90d657564427020911df4b4a3e1eb54cee553555078c9f260b",
@@ -926,12 +926,12 @@
     "0xed6dec454d64ed798a78bdc54ddfa4e2cd04bd9933b80775362bd5ce90f84d6b",
     "0xc1757b9a2159c3dd3c2a9a1506b2d1c08c9d51495e3944a14dec526c5a6fc565"
   ],
-  "last_market_price": 5.063e-06,
-  "last_market_volume": 11778.75,
-  "last_scanned_block": 26239398,
+  "last_market_price": 5.162e-06,
+  "last_market_volume": 19765.04,
+  "last_scanned_block": 26239647,
   "chain_scan": {
-    "at": "2026-10-21T07:13:09+00:00",
-    "blocks": "26239123-26239398",
+    "at": "2026-10-21T08:03:01+00:00",
+    "blocks": "26239399-26239647",
     "complete": true,
     "logs": 138,
     "burns": 0,
