@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-10-24T07:53:38.299267+00:00",
+  "last_run": "2026-10-24T08:13:06.353229+00:00",
   "seen_news": [
     "907446422455780fd013f36e49e444c5182fb00e839c92812dbfe9bd39895d8a",
     "3bff352c9fdbe676678802fcf4654b54c9918552a4ea973e66fc371bed5485ce",
@@ -392,7 +392,9 @@
     "f57799ee22507e2446c92fe3614438c5a102ec48f319ebdbf9ff2123cb6bc191",
     "c8ef1f22a6eabe7c7c762a3fba0049712344d7177f7119633913ee0efa119af3",
     "cb35cddd8df12e2b21af0bfedba9fcedc1edd3077917e7076e150d03e7eaad98",
-    "cbd1bf2eed48354407b440ddc7d889de3384b8bc43144c1f575c8acf66574a51"
+    "cbd1bf2eed48354407b440ddc7d889de3384b8bc43144c1f575c8acf66574a51",
+    "02c7c802acb1787b019c0ad9f0a0c32540aadfcb3a714e3a6bdba0a3eb0b280d",
+    "1ea0c46219d6a98f61fde27dd087bbef17799bec673e0fefbf9f334d641a5945"
   ],
   "seen_burn_tx": [
     "0xfc41d7a26c082153aae4cecefea985081468bdbbde17739edd9b8f94d754f7e9",
@@ -400,7 +402,6 @@
     "0x098a68341e04b06a801e988033f7728f35d1047f20c0ab25092b49cae2be8667"
   ],
   "posted_hashes": [
-    "d357c47fae3ab2f1e078f6d700279d341bd37227aa5086ffd0573e5252a5f347",
     "a34486c48be5be04aebff77d3f245e4face3d2f41833c37a10a52a211d407b0f",
     "1a827342e166549618eff27564f5517a84d8e7be32a6b8a7d111f8ec923f8f98",
     "673ce5284c89c03607cf3b172fef847ffc368ed95fcb14ab7de671a75add95a2",
@@ -899,7 +900,8 @@
     "a6169f9511aff1e187b8814f873e415a5277f3b51c8e57ff4205768af5de650a",
     "b72be45e91cc8c789282b49b50979e328cb6371eec3c5d80522e06452208e8c1",
     "b11b1f65e2d39b3a31125d699f61501aab7c0c64a38b4c7179678258596e19dd",
-    "e4dfe213816810647de288b622ac5b76f8e7e3f1b880519b73dc06e79aee2764"
+    "e4dfe213816810647de288b622ac5b76f8e7e3f1b880519b73dc06e79aee2764",
+    "8eec851be914977a7532e2a2ba910af9cde454245c82c01c6d26d1785f1ebd12"
   ],
   "seen_whale_tx": [
     "0x85eb3aba4d7fbf90d657564427020911df4b4a3e1eb54cee553555078c9f260b",
@@ -973,16 +975,16 @@
   ],
   "last_market_price": 4.951e-06,
   "last_market_volume": 49779.28,
-  "last_scanned_block": 26261130,
+  "last_scanned_block": 26261228,
   "chain_scan": {
-    "at": "2026-10-24T07:53:37+00:00",
-    "blocks": "26260900-26261130",
+    "at": "2026-10-24T08:13:05+00:00",
+    "blocks": "26261131-26261228",
     "complete": true,
-    "logs": 99,
+    "logs": 54,
     "burns": 0,
     "whales": 0,
     "rpc_ok": {
-      "ethereum-rpc.publicnode.com": 4
+      "ethereum-rpc.publicnode.com": 2
     },
     "rpc_errors": {}
   }
