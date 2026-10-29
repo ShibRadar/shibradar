@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-10-29T18:06:36.057202+00:00",
+  "last_run": "2026-10-29T19:19:19.128621+00:00",
   "seen_news": [
     "907446422455780fd013f36e49e444c5182fb00e839c92812dbfe9bd39895d8a",
     "3bff352c9fdbe676678802fcf4654b54c9918552a4ea973e66fc371bed5485ce",
@@ -454,7 +454,11 @@
     "24b99326d5aa65885893c81bbcca42a5e02b88f1a8732bc76f102bdcaaea735c",
     "34707e56c82cde4089aba98494022ba0d62d300aaff2b2e6d229cda3dd829ae6",
     "c55a2015175e690af120f768bed453a5acd004568cebf1af7a63b9b1aa7b8875",
-    "fefdf5644596c3bbd04dcbe6c025179e26d7ef61c0bbebefcf96dbabd303d6a8"
+    "fefdf5644596c3bbd04dcbe6c025179e26d7ef61c0bbebefcf96dbabd303d6a8",
+    "cf8730c15e6ac1acf1844692633d45695b139ac0f5438147b01fe7bac02eca79",
+    "8d6af19f9cbfcf386ec042bf4ccbc3e70d2d4c2b71828b606f676615c52aefdc",
+    "74cebe132400525675fca6468127e0dd538c6d9bd9af92d47233bccf38fb9018",
+    "c11cffbe2f53fe15a846b7492c2a144b04936467f7650252fe52197180ac65aa"
   ],
   "seen_burn_tx": [
     "0xfc41d7a26c082153aae4cecefea985081468bdbbde17739edd9b8f94d754f7e9",
@@ -464,8 +468,6 @@
     "0x200fd4260dbf7444af1ff20a90b0d457878de31a1b04c8d7e842938382569fcf"
   ],
   "posted_hashes": [
-    "d46afbfb230f0b8d688d52d68cefbfb81499f4c45b96edd393e0edc731fd008a",
-    "306757c46c4bf4ea374144fca0cdbe4bd7d569573a1b6137b94f89b55accf48b",
     "1a51a88c8fc051150f6a4253a484695af46040a66737c6d916a4ea3a2e9ed40a",
     "fe823f3597e2e5a04c9b2254c4c264229124472f140ef5eb2cfe6e88f4f3863a",
     "62728f73be8514f15a506bf28ae1eff95fecb44633b3ec679e4c3a211d5faa50",
@@ -963,7 +965,9 @@
     "7d948682ce446ae2085f211f0260066f9fec634e473afbd4f628f9b58bd59b1e",
     "0937467e348b0b70adba91c2ea893e9072493dee3539322d4c1cb7b9b77d9ef9",
     "6c0c163376e58d429fa1592f66382e41a2d8de5ca0d6f5cd4ae9b78ee4aa275b",
-    "ff0fc857d29a263d6dd505124c58a5022070cfa38d1d1ba8a5110f8de3a8452b"
+    "ff0fc857d29a263d6dd505124c58a5022070cfa38d1d1ba8a5110f8de3a8452b",
+    "0bfa2031e5973f867fd1c385b3483f4948062a58129dd39bc12e996be23beb88",
+    "abb2a36815c3e852b316e0690a96758cc2bac588cb9f98926f17b596e55e67f6"
   ],
   "seen_whale_tx": [
     "0x85eb3aba4d7fbf90d657564427020911df4b4a3e1eb54cee553555078c9f260b",
@@ -1067,16 +1071,16 @@
   ],
   "last_market_price": 4.993e-06,
   "last_market_volume": 49600.38,
-  "last_scanned_block": 26300081,
+  "last_scanned_block": 26300443,
   "chain_scan": {
-    "at": "2026-10-29T18:06:35+00:00",
-    "blocks": "26299825-26300081",
+    "at": "2026-10-29T19:19:17+00:00",
+    "blocks": "26300082-26300443",
     "complete": true,
-    "logs": 129,
+    "logs": 189,
     "burns": 0,
     "whales": 0,
     "rpc_ok": {
-      "ethereum-rpc.publicnode.com": 4
+      "ethereum-rpc.publicnode.com": 5
     },
     "rpc_errors": {}
   }
