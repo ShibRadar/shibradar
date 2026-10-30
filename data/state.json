@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-10-30T19:33:18.752101+00:00",
+  "last_run": "2026-10-30T20:23:50.352750+00:00",
   "seen_news": [
     "907446422455780fd013f36e49e444c5182fb00e839c92812dbfe9bd39895d8a",
     "3bff352c9fdbe676678802fcf4654b54c9918552a4ea973e66fc371bed5485ce",
@@ -1109,16 +1109,16 @@
   ],
   "last_market_price": 4.747e-06,
   "last_market_volume": 5624875.38,
-  "last_scanned_block": 26307686,
+  "last_scanned_block": 26307937,
   "chain_scan": {
-    "at": "2026-10-30T19:33:17+00:00",
-    "blocks": "26307217-26307686",
+    "at": "2026-10-30T20:23:49+00:00",
+    "blocks": "26307687-26307937",
     "complete": true,
-    "logs": 300,
+    "logs": 154,
     "burns": 0,
-    "whales": 1,
+    "whales": 0,
     "rpc_ok": {
-      "ethereum-rpc.publicnode.com": 6
+      "ethereum-rpc.publicnode.com": 4
     },
     "rpc_errors": {}
   }
