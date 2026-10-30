@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-10-30T22:57:50.193610+00:00",
+  "last_run": "2026-10-30T23:23:25.058525+00:00",
   "seen_news": [
     "907446422455780fd013f36e49e444c5182fb00e839c92812dbfe9bd39895d8a",
     "3bff352c9fdbe676678802fcf4654b54c9918552a4ea973e66fc371bed5485ce",
@@ -490,7 +490,6 @@
     "0x200fd4260dbf7444af1ff20a90b0d457878de31a1b04c8d7e842938382569fcf"
   ],
   "posted_hashes": [
-    "2d9d00d0908cf7d5b9ca39a12210056afaedc194f77ca2b1173e523f0a2a03a4",
     "7230f572465d65d907f9f5a8c8ae6968ccc1660fd30c2a1c0fcaa16d05bd371c",
     "3b8a0e64540a98f0bc26b72f1b4f4a0415bb9cbf905fe0bc93df6c44b4107318",
     "42a556f7131485d2e31323982e41d23c5ca6366252676d4b68a27a0709dfc2ac",
@@ -989,7 +988,8 @@
     "7c7909900f84b1fed0d9829f7deca1f66363fd049d387a01657db3a3a0a09bd9",
     "bd42560c582e575a403664de369b132907b93a4ee63302d069d634678e830974",
     "62c0636e628424303c05ed6d2f788339716db9271abb70eb1b34eefc97a45938",
-    "e4b41d4b94b9942ae03c29c0f6522e70e3fa9d315188e096d8e219872b4a110a"
+    "e4b41d4b94b9942ae03c29c0f6522e70e3fa9d315188e096d8e219872b4a110a",
+    "7d0fff5d8beceb9faa4cb9a7555edd0110f5c359551b116872e8ecb6f5ec2cc4"
   ],
   "seen_whale_tx": [
     "0x85eb3aba4d7fbf90d657564427020911df4b4a3e1eb54cee553555078c9f260b",
@@ -1106,18 +1106,19 @@
     "0xcb88e19b77d7a9d63b91dde06bf2ecb97907ff14e96500376603d25c927f2196",
     "0xb6fdba28dbddd492d42c6f8b6b6f1a8e69ef4565f7925c23d72408fc493d3076",
     "0x2d98a86dacdced8c4f5ace5d4a19fdfbb9d5be65afe1bfae66eb5fc6fbf5990f",
-    "0xb11d50acb2031fb56e8b06b18634a4b3c367d681cb139a00c8eb1e6b2a6d2d2e"
+    "0xb11d50acb2031fb56e8b06b18634a4b3c367d681cb139a00c8eb1e6b2a6d2d2e",
+    "0xf92830785e959dc5a8ab2f9a0d4352aac729cdc849d4fe659da51bc8b5d3a13c"
   ],
   "last_market_price": 4.747e-06,
   "last_market_volume": 5624875.38,
-  "last_scanned_block": 26308705,
+  "last_scanned_block": 26308833,
   "chain_scan": {
-    "at": "2026-10-30T22:57:49+00:00",
-    "blocks": "26308542-26308705",
+    "at": "2026-10-30T23:23:23+00:00",
+    "blocks": "26308706-26308833",
     "complete": true,
-    "logs": 134,
+    "logs": 91,
     "burns": 0,
-    "whales": 0,
+    "whales": 1,
     "rpc_ok": {
       "ethereum-rpc.publicnode.com": 3
     },
