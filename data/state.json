@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-10-29T23:56:38.016196+00:00",
+  "last_run": "2026-10-30T00:25:36.464485+00:00",
   "seen_news": [
     "907446422455780fd013f36e49e444c5182fb00e839c92812dbfe9bd39895d8a",
     "3bff352c9fdbe676678802fcf4654b54c9918552a4ea973e66fc371bed5485ce",
@@ -472,7 +472,6 @@
     "0x200fd4260dbf7444af1ff20a90b0d457878de31a1b04c8d7e842938382569fcf"
   ],
   "posted_hashes": [
-    "e125c1c0a48acf871edc816824be81111953ca0cd76b63cef7f90a7b331a5733",
     "07effc0c87f8e5305c4b93cb092e3047ee2ed04f3009f53399fb70e7068202ea",
     "c076aa7b174a2c83d2c8335b853153c12ca7069aab7f32a0ce92977999f30ec8",
     "b2b2284149c689baa5bfc80366ed84abaa8c7dffb625a6f771c152190858207b",
@@ -971,7 +970,8 @@
     "320d3c5062e3ed21f6baf9a68275521deb078a8193722b94b6776751e002a16c",
     "987bbd506051c35bf8061a8777920f4a97d6db19223aa83895648edeebec55c4",
     "89b26c0d683f5ea5c6d04d05e81ed14123fba8a38fc3eb5abe253cf1257482c7",
-    "5e4c66fddea92d140f58c98818bf5d25a6934a22cb49bb045959e18a034b9f11"
+    "5e4c66fddea92d140f58c98818bf5d25a6934a22cb49bb045959e18a034b9f11",
+    "7a07dc1d4afce4d2e2b7ecdc4742cd01bff6c8191ac5182277ae2ea5e5594af7"
   ],
   "seen_whale_tx": [
     "0x85eb3aba4d7fbf90d657564427020911df4b4a3e1eb54cee553555078c9f260b",
@@ -1077,18 +1077,18 @@
     "0xa3c0cbf972f798b507a1c7b4eb640041b2cd1e2d9b4a1140cb26c3eb2de603a2",
     "0x5520586a8572e6cde73da7a7204d32ce53d6f2aa5e739bb345c3c713134ca74f"
   ],
-  "last_market_price": 4.735e-06,
-  "last_market_volume": 657504.68,
-  "last_scanned_block": 26301823,
+  "last_market_price": 4.558e-06,
+  "last_market_volume": 661560.47,
+  "last_scanned_block": 26301967,
   "chain_scan": {
-    "at": "2026-10-29T23:56:37+00:00",
-    "blocks": "26301547-26301823",
+    "at": "2026-10-30T00:25:35+00:00",
+    "blocks": "26301824-26301967",
     "complete": true,
-    "logs": 122,
+    "logs": 75,
     "burns": 0,
-    "whales": 2,
+    "whales": 0,
     "rpc_ok": {
-      "ethereum-rpc.publicnode.com": 4
+      "ethereum-rpc.publicnode.com": 3
     },
     "rpc_errors": {}
   }
