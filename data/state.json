@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-11-20T18:53:08.538808+00:00",
+  "last_run": "2026-11-21T00:23:56.585882+00:00",
   "seen_news": [
     "1363173daf8b853ac58657f4d40e084778fb360aa2481d0be3af7c084683b228",
     "a142288c4868721c72fd176a52061e0bbabd703d369be8db587cf3d9667331d9",
@@ -513,7 +513,6 @@
     "0x047227a9d7ad3ae4e8e1c7cc51a7881d840420e8019f131a597ef42043bdfe20"
   ],
   "posted_hashes": [
-    "52c0fb554747e5dfacfda688ac0669af2b86f2a010f86097d702e0aa76931769",
     "69237f2b85b8af28a5a1734b4151862b7bcb028536105a75295335e56c4c785e",
     "d02da3918da736d6d946934d2c02a4485f818d695d2621805b57829ebac17cb8",
     "e13161a00e124602d28123b459c083355e138dc202ae7f0e646bace4951aaa5a",
@@ -1012,7 +1011,8 @@
     "947a731163c924114ffa777c2c290b38062038cb0b4a53e605753e08092a7d29",
     "a32bc81a1840127fbf2bf80613d00926098eb192a4aeabf78fcbf881bb2125ad",
     "5792ac38c1775716fb975dfad354f11b13a017da2e4c2462dbd498c9e8ae563c",
-    "c32c963589a4ba16c3640e4a37b8080a6a81d4a21f798df87e837865bc963f51"
+    "c32c963589a4ba16c3640e4a37b8080a6a81d4a21f798df87e837865bc963f51",
+    "fc28216d440e33d6f529f544768f334694ed37329b75fc554c317aae159d3c37"
   ],
   "seen_whale_tx": [
     "0x85eb3aba4d7fbf90d657564427020911df4b4a3e1eb54cee553555078c9f260b",
@@ -1190,18 +1190,18 @@
     "0x4e5e60636b6a796ff7037ff1c802581759bc44a2407a22d93a151f3f4a6206ac",
     "0x6a901737cbb0793905af6de5b4948d57a1dfae05ebb076429d6c2cc16c2dc00d"
   ],
-  "last_market_price": 3.846e-06,
-  "last_market_volume": 63137.63,
-  "last_scanned_block": 26458217,
+  "last_market_price": 3.578e-06,
+  "last_market_volume": 72985.37,
+  "last_scanned_block": 26459864,
   "chain_scan": {
-    "at": "2026-11-20T18:53:07+00:00",
-    "blocks": "26455759-26458217",
+    "at": "2026-11-21T00:23:55+00:00",
+    "blocks": "26458218-26459864",
     "complete": true,
-    "logs": 1410,
+    "logs": 1014,
     "burns": 0,
-    "whales": 4,
+    "whales": 0,
     "rpc_ok": {
-      "ethereum-rpc.publicnode.com": 26
+      "ethereum-rpc.publicnode.com": 18
     },
     "rpc_errors": {}
   }
